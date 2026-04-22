@@ -181,7 +181,7 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
                     const SizedBox(height: 20),
 
                     DropdownButtonFormField<String>(
-                      value: incomeFrequency,
+                      initialValue: incomeFrequency,
                       dropdownColor: const Color(0xFF1C1C2E),
                       style: const TextStyle(color: Colors.white),
 
@@ -301,7 +301,7 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
                     const SizedBox(height: 20),
 
                     DropdownButtonFormField<String>(
-                      value: debtFrequency,
+                      initialValue: debtFrequency,
                       dropdownColor: const Color(0xFF1C1C2E),
                       style: const TextStyle(color: Colors.white),
 

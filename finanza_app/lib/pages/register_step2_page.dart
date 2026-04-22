@@ -200,7 +200,7 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                 /// DESPLEGAR TIPO TARJETA
                 if (hasCard)
                   DropdownButtonFormField<String>(
-                    value: cardType,
+                    initialValue: cardType,
                     dropdownColor: const Color(0xFF1C1C2E),
                     style: const TextStyle(color: Colors.white),
 
