@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'financial_info_page.dart';
 
 class RegisterStep2Page extends StatefulWidget {
   final String accountType;
@@ -68,7 +67,6 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.purpleAccent),
           onPressed: () {
@@ -80,19 +78,15 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
-
           child: Form(
             key: _formKey,
-
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// BARRA DE PROGRESO
                 const Text(
                   "Paso 3 de 4",
                   style: TextStyle(color: Colors.white70),
                 ),
-
                 const SizedBox(height: 8),
 
                 LinearProgressIndicator(
@@ -118,26 +112,21 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                 TextFormField(
                   controller: emailController,
                   style: const TextStyle(color: Colors.white),
-
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return "Ingresa tu correo";
                     }
                     return null;
                   },
-
                   decoration: InputDecoration(
                     prefixIcon: const Icon(
                       Icons.email,
                       color: Colors.cyanAccent,
                     ),
-
                     labelText: "Correo electrónico",
                     labelStyle: const TextStyle(color: Colors.white70),
-
                     filled: true,
                     fillColor: const Color(0xFF1C1C2E),
-
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -151,26 +140,21 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                   controller: passwordController,
                   obscureText: true,
                   style: const TextStyle(color: Colors.white),
-
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return "Ingresa una contraseña";
                     }
                     return null;
                   },
-
                   decoration: InputDecoration(
                     prefixIcon: const Icon(
                       Icons.lock,
                       color: Colors.purpleAccent,
                     ),
-
                     labelText: "Crear contraseña",
                     labelStyle: const TextStyle(color: Colors.white70),
-
                     filled: true,
                     fillColor: const Color(0xFF1C1C2E),
-
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -179,7 +163,6 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
 
                 const SizedBox(height: 30),
 
-                /// TARJETA
                 const Text(
                   "¿Cuentas con tarjeta?",
                   style: TextStyle(color: Colors.white, fontSize: 18),
@@ -197,13 +180,11 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
 
                 const SizedBox(height: 20),
 
-                /// DESPLEGAR TIPO TARJETA
                 if (hasCard)
                   DropdownButtonFormField<String>(
                     initialValue: cardType,
                     dropdownColor: const Color(0xFF1C1C2E),
                     style: const TextStyle(color: Colors.white),
-
                     decoration: InputDecoration(
                       labelText: "Tipo de tarjeta",
                       labelStyle: const TextStyle(color: Colors.white70),
@@ -213,7 +194,6 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-
                     items: const [
                       DropdownMenuItem(value: "Debito", child: Text("Débito")),
                       DropdownMenuItem(
@@ -221,7 +201,6 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                         child: Text("Crédito"),
                       ),
                     ],
-
                     onChanged: (value) {
                       setState(() {
                         cardType = value!;
@@ -231,30 +210,23 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
 
                 const SizedBox(height: 40),
 
-                /// BOTÓN SIGUIENTE
                 SizedBox(
                   width: double.infinity,
-
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.cyanAccent,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
-                        Navigator.push(
+                        Navigator.pushNamed(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => FinancialInfoPage(
-                              accountType: widget.accountType,
-                            ),
-                          ),
+                          '/financial_info',
+                          arguments: widget.accountType,
                         );
                       }
                     },
-
                     child: const Text(
                       "Siguiente",
                       style: TextStyle(fontSize: 16),

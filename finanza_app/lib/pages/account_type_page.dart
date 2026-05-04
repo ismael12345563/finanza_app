@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'register_step2_page.dart';
 
 class AccountTypePage extends StatefulWidget {
   const AccountTypePage({super.key});
@@ -20,27 +19,21 @@ class _AccountTypePageState extends State<AccountTypePage> {
           selectedType = type;
         });
       },
-
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 10),
         padding: const EdgeInsets.all(20),
-
         decoration: BoxDecoration(
           color: const Color(0xFF1C1C2E),
           borderRadius: BorderRadius.circular(12),
-
           border: Border.all(
             color: selected ? Colors.cyanAccent : Colors.white12,
             width: 2,
           ),
         ),
-
         child: Row(
           children: [
             Icon(icon, color: Colors.cyanAccent, size: 30),
-
             const SizedBox(width: 15),
-
             Text(
               text,
               style: const TextStyle(color: Colors.white, fontSize: 18),
@@ -61,13 +54,10 @@ class _AccountTypePageState extends State<AccountTypePage> {
           "Tipo de cuenta",
           style: TextStyle(color: Colors.white),
         ),
-
         backgroundColor: Colors.transparent,
         elevation: 0,
-
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.purpleAccent),
-
           onPressed: () {
             Navigator.pop(context);
           },
@@ -77,17 +67,13 @@ class _AccountTypePageState extends State<AccountTypePage> {
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
-
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-
             children: [
-              /// BARRA DE PROGRESO
               const Text(
                 "Paso 2 de 4",
                 style: TextStyle(color: Colors.white70),
               ),
-
               const SizedBox(height: 8),
 
               LinearProgressIndicator(
@@ -110,7 +96,6 @@ class _AccountTypePageState extends State<AccountTypePage> {
               const SizedBox(height: 30),
 
               buildOption("personal", "Uso personal", Icons.person),
-
               buildOption(
                 "business",
                 "Tengo un negocio (PYME)",
@@ -121,26 +106,21 @@ class _AccountTypePageState extends State<AccountTypePage> {
 
               SizedBox(
                 width: double.infinity,
-
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.cyanAccent,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-
                   onPressed: () {
                     if (selectedType != null) {
-                      Navigator.push(
+                      Navigator.pushNamed(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              RegisterStep2Page(accountType: selectedType!),
-                        ),
+                        '/register_step2',
+                        arguments: selectedType,
                       );
                     }
                   },
-
                   child: const Text(
                     "Siguiente",
                     style: TextStyle(fontSize: 16),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'register_page.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -48,7 +47,9 @@ class WelcomePage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/login');
+                      },
                       child: const Text("Iniciar Sesión"),
                     ),
                   ),
@@ -67,12 +68,7 @@ class WelcomePage extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RegisterPage(),
-                          ),
-                        );
+                        Navigator.pushNamed(context, '/register');
                       },
                       child: const Text(
                         "Registrarse",

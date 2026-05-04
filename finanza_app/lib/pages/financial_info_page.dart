@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class FinancialInfoPage extends StatefulWidget {
   final String accountType;
+  final String email; // 👈 NUEVO
+  final String password; // 👈 NUEVO
 
-  const FinancialInfoPage({super.key, required this.accountType});
+  const FinancialInfoPage({
+    super.key,
+    required this.accountType,
+    required this.email,
+    required this.password,
+  });
 
   @override
   State<FinancialInfoPage> createState() => _FinancialInfoPageState();
@@ -12,7 +21,6 @@ class FinancialInfoPage extends StatefulWidget {
 class _FinancialInfoPageState extends State<FinancialInfoPage> {
   final _formKey = GlobalKey<FormState>();
 
-  /// PERSONAL
   bool works = false;
   bool hasDebt = false;
 
@@ -23,20 +31,11 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
   final debtPaymentController = TextEditingController();
   String debtFrequency = "Mensual";
 
-  /// BUSINESS
-  final businessNameController = TextEditingController();
-  final businessIncomeController = TextEditingController();
-  final employeesController = TextEditingController();
-  String businessType = "Tienda";
-
   @override
   void dispose() {
     incomeController.dispose();
     debtAmountController.dispose();
     debtPaymentController.dispose();
-    businessNameController.dispose();
-    businessIncomeController.dispose();
-    employeesController.dispose();
     super.dispose();
   }
 
@@ -66,6 +65,49 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
     );
   }
 
+  String? numberValidator(String? value) {
+    if (value == null || value.isEmpty) return "Campo requerido";
+    if (double.tryParse(value) == null) return "Solo números";
+    return null;
+  }
+
+  /// 🔥 REGISTRO COMPLETO (AHORA CON EMAIL Y PASSWORD)
+  Future<void> registerUser() async {
+    final url = Uri.parse("http://127.0.0.1:8000/register");
+
+    final data = {
+      "email": widget.email,
+      "password": widget.password,
+      "accountType": widget.accountType,
+      "works": works,
+      "income": incomeController.text.trim(),
+      "incomeFrequency": incomeFrequency,
+      "hasDebt": hasDebt,
+      "debtAmount": debtAmountController.text.trim(),
+      "debtPayment": debtPaymentController.text.trim(),
+      "debtFrequency": debtFrequency,
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(data),
+      );
+
+      if (response.statusCode == 200) {
+        print("Registro exitoso 🔥");
+        print(response.body);
+
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+      } else {
+        print("Error backend: ${response.body}");
+      }
+    } catch (e) {
+      print("Error conexión: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,10 +118,8 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
           "Información financiera",
           style: TextStyle(color: Colors.white),
         ),
-
         backgroundColor: Colors.transparent,
         elevation: 0,
-
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.purpleAccent),
           onPressed: () {
@@ -98,7 +138,6 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// PROGRESS
                 const Text(
                   "Paso 4 de 4",
                   style: TextStyle(color: Colors.white70),
@@ -125,9 +164,7 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
 
                 const SizedBox(height: 30),
 
-                /// PERSONAL
                 if (widget.accountType == "personal") ...[
-                  /// TRABAJO
                   const Text(
                     "¿Trabajas?",
                     style: TextStyle(color: Colors.white, fontSize: 18),
@@ -138,40 +175,32 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
                   Row(
                     children: [
                       yesNoButton(true, works, "SI", () {
-                        setState(() {
-                          works = true;
-                        });
+                        setState(() => works = true);
                       }),
                       const SizedBox(width: 10),
                       yesNoButton(false, works, "NO", () {
-                        setState(() {
-                          works = false;
-                        });
+                        setState(() => works = false);
                       }),
                     ],
                   ),
 
                   const SizedBox(height: 20),
 
-                  /// SI TRABAJA
                   if (works) ...[
                     TextFormField(
                       controller: incomeController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: Colors.white),
-
+                      validator: numberValidator,
                       decoration: InputDecoration(
                         prefixIcon: const Icon(
                           Icons.attach_money,
                           color: Colors.cyanAccent,
                         ),
-
                         labelText: "¿Cuánto ganas?",
                         labelStyle: const TextStyle(color: Colors.white70),
-
                         filled: true,
                         fillColor: const Color(0xFF1C1C2E),
-
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -184,19 +213,15 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
                       initialValue: incomeFrequency,
                       dropdownColor: const Color(0xFF1C1C2E),
                       style: const TextStyle(color: Colors.white),
-
                       decoration: InputDecoration(
                         labelText: "¿Cada cuánto te pagan?",
                         labelStyle: const TextStyle(color: Colors.white70),
-
                         filled: true,
                         fillColor: const Color(0xFF1C1C2E),
-
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-
                       items: const [
                         DropdownMenuItem(
                           value: "Semanal",
@@ -211,18 +236,14 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
                           child: Text("Mensual"),
                         ),
                       ],
-
                       onChanged: (value) {
-                        setState(() {
-                          incomeFrequency = value!;
-                        });
+                        setState(() => incomeFrequency = value!);
                       },
                     ),
                   ],
 
                   const SizedBox(height: 30),
 
-                  /// DEUDAS
                   const Text(
                     "¿Tienes deudas?",
                     style: TextStyle(color: Colors.white, fontSize: 18),
@@ -233,40 +254,32 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
                   Row(
                     children: [
                       yesNoButton(true, hasDebt, "SI", () {
-                        setState(() {
-                          hasDebt = true;
-                        });
+                        setState(() => hasDebt = true);
                       }),
                       const SizedBox(width: 10),
                       yesNoButton(false, hasDebt, "NO", () {
-                        setState(() {
-                          hasDebt = false;
-                        });
+                        setState(() => hasDebt = false);
                       }),
                     ],
                   ),
 
                   const SizedBox(height: 20),
 
-                  /// SI TIENE DEUDA
                   if (hasDebt) ...[
                     TextFormField(
                       controller: debtAmountController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: Colors.white),
-
+                      validator: numberValidator,
                       decoration: InputDecoration(
                         prefixIcon: const Icon(
                           Icons.money_off,
                           color: Colors.redAccent,
                         ),
-
                         labelText: "¿Cuánto debes?",
                         labelStyle: const TextStyle(color: Colors.white70),
-
                         filled: true,
                         fillColor: const Color(0xFF1C1C2E),
-
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -279,89 +292,40 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
                       controller: debtPaymentController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: Colors.white),
-
+                      validator: numberValidator,
                       decoration: InputDecoration(
                         prefixIcon: const Icon(
                           Icons.payment,
                           color: Colors.orangeAccent,
                         ),
-
                         labelText: "¿Cuánto pagas cada vez?",
                         labelStyle: const TextStyle(color: Colors.white70),
-
                         filled: true,
                         fillColor: const Color(0xFF1C1C2E),
-
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    DropdownButtonFormField<String>(
-                      initialValue: debtFrequency,
-                      dropdownColor: const Color(0xFF1C1C2E),
-                      style: const TextStyle(color: Colors.white),
-
-                      decoration: InputDecoration(
-                        labelText: "¿Cada cuánto pagas?",
-                        labelStyle: const TextStyle(color: Colors.white70),
-
-                        filled: true,
-                        fillColor: const Color(0xFF1C1C2E),
-
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-
-                      items: const [
-                        DropdownMenuItem(
-                          value: "Semanal",
-                          child: Text("Semanal"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Quincenal",
-                          child: Text("Quincenal"),
-                        ),
-                        DropdownMenuItem(
-                          value: "Mensual",
-                          child: Text("Mensual"),
-                        ),
-                      ],
-
-                      onChanged: (value) {
-                        setState(() {
-                          debtFrequency = value!;
-                        });
-                      },
                     ),
                   ],
                 ],
 
                 const SizedBox(height: 40),
 
-                /// CREAR CUENTA
                 SizedBox(
                   width: double.infinity,
-
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.cyanAccent,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-
                     onPressed: () {
-                      print("Cuenta creada");
+                      if (_formKey.currentState!.validate()) {
+                        registerUser();
+                      }
                     },
-
-                    child: const Text(
-                      "Crear cuenta",
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    child: const Text("Crear cuenta"),
                   ),
                 ),
               ],

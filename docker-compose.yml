@@ -1,0 +1,29 @@
+services:
+
+  db:
+    image: postgres:15
+    container_name: astrofi_db
+    restart: always
+    environment:
+      POSTGRES_USER: astrofi
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: astrofi_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # 🔥 IMPORTANTE
+
+  backend:
+    build: ./backend
+    container_name: astrofi_backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+# 🔥 DEFINICIÓN DEL VOLUMEN
+volumes:
+  postgres_data:
