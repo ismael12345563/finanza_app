@@ -1,0 +1,28 @@
+name: CI AstroFi
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Clonar repositorio
+      uses: actions/checkout@v3
+
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Instalar dependencias
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: Verificar app
+      run: |
+        cd backend
+        python -m py_compile main.py  
