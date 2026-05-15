@@ -15,7 +15,7 @@ class _DebtPageState extends State<DebtPage> {
   final amountController = TextEditingController();
   final descriptionController = TextEditingController();
 
-  final String baseUrl = "http://192.168.0.17:8000";
+  final String baseUrl = "https://finanza-app.onrender.com";
 
   Future<void> addDebt() async {
     final amount = amountController.text.trim();

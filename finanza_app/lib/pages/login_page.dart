@@ -14,7 +14,8 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
 
   // 🔥 IP DE TU LAPTOP
-  final String baseUrl = "http://192.168.0.17:8000";
+  // 🔥 URL DEL BACKEND
+  final String baseUrl = "https://finanza-app.onrender.com";
 
   Future<void> loginUser() async {
     final url = Uri.parse("$baseUrl/login");

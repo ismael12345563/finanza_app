@@ -73,18 +73,14 @@ class Debt(BaseModel):
 class DebtPayment(BaseModel):
     payment_amount: float
 
-
 # =========================
 # PASSWORD
 # =========================
 def hash_password(password: str):
     password = password.strip()
-
     if len(password) > 72:
         raise HTTPException(status_code=400, detail="Password muy larga")
-
     return pwd_context.hash(password)
-
 
 def verify_password(plain, hashed):
     return pwd_context.verify(plain.strip(), hashed)
@@ -114,17 +110,10 @@ def register(user: User):
 
         cur.execute("""
             INSERT INTO users (
-                email,
-                password,
-                account_type,
-                works,
-                income,
-                income_frequency,
-                has_debt,
-                debt_amount,
-                debt_payment,
-                debt_frequency,
-                has_credit_card
+                email, password, account_type, works,
+                income, income_frequency,
+                has_debt, debt_amount, debt_payment,
+                debt_frequency, has_credit_card
             )
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
@@ -141,56 +130,22 @@ def register(user: User):
             user.hasCreditCard
         ))
 
-        if user.hasDebt:
-            amount = float(user.debtAmount or "0")
-
-            if amount > 0:
-                cur.execute("""
-                    INSERT INTO debts (
-                        user_email,
-                        amount,
-                        description,
-                        frequency,
-                        remaining_amount,
-                        paid_amount
-                    )
-                    VALUES (%s,%s,%s,%s,%s,%s)
-                """, (
-                    user.email.strip(),
-                    amount,
-                    "Deuda inicial",
-                    user.debtFrequency,
-                    amount,
-                    0
-                ))
-
         conn.commit()
-
         return {"mensaje": "Usuario creado"}
 
-    except HTTPException as e:
-        raise e
-
     except Exception as e:
-
         if conn:
             conn.rollback()
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
     finally:
-
         if cur:
             cur.close()
-
         if conn:
             conn.close()
 
 # =========================
-# LOGIN
+# LOGIN (CORREGIDO)
 # =========================
 @app.post("/login")
 def login(data: LoginRequest):
@@ -210,304 +165,26 @@ def login(data: LoginRequest):
         row = cur.fetchone()
 
         if not row:
-            raise HTTPException(
-                status_code=404,
-                detail="Usuario no existe"
-            )
+            raise HTTPException(status_code=404, detail="Usuario no existe")
 
-        if verify_password(data.password, row["password"]):
+        hashed_password = row.get("password")
+
+        if not hashed_password:
+            raise HTTPException(status_code=500, detail="Error interno")
+
+        if verify_password(data.password, hashed_password):
             return {"mensaje": "Login ok"}
 
-        raise HTTPException(
-            status_code=401,
-            detail="Password incorrecta"
-        )
+        raise HTTPException(status_code=401, detail="Password incorrecta")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     finally:
-
         if cur:
             cur.close()
-
         if conn:
             conn.close()
-
-# =========================
-# GET USER
-# =========================
-@app.get("/get_user/{email}")
-def get_user(email: str):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT email, has_credit_card
-        FROM users
-        WHERE email=%s
-    """, (email,))
-
-    row = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    if not row:
-        raise HTTPException(
-            status_code=404,
-            detail="Usuario no encontrado"
-        )
-
-    return {
-        "email": row["email"],
-        "has_credit_card": row["has_credit_card"] or False
-    }
-
-# =========================
-# GET INCOMES
-# =========================
-@app.get("/get_incomes/{email}")
-def get_incomes(email: str):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT id, amount, description, frequency, created_at
-        FROM incomes
-        WHERE user_email=%s
-        ORDER BY id DESC
-    """, (email,))
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows
-
-# =========================
-# ADD INCOME
-# =========================
-@app.post("/add_income")
-def add_income(data: Income):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT INTO incomes (
-            user_email,
-            amount,
-            description,
-            frequency
-        )
-        VALUES (%s,%s,%s,%s)
-    """, (
-        data.user_email,
-        data.amount,
-        data.description,
-        data.frequency
-    ))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-    return {"mensaje": "Ingreso agregado"}
-
-# =========================
-# DELETE INCOME
-# =========================
-@app.delete("/delete_income/{income_id}")
-def delete_income(income_id: int):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "DELETE FROM incomes WHERE id=%s",
-        (income_id,)
-    )
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-    return {"mensaje": "Ingreso eliminado"}
-
-# =========================
-# GET DEBTS
-# =========================
-@app.get("/get_debts/{email}")
-def get_debts(email: str):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT
-            id,
-            amount,
-            description,
-            frequency,
-            created_at,
-            remaining_amount,
-            paid_amount
-        FROM debts
-        WHERE user_email=%s
-        ORDER BY id DESC
-    """, (email,))
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows
-
-# =========================
-# ADD DEBT
-# =========================
-@app.post("/add_debt")
-def add_debt(data: Debt):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    amount = float(data.amount)
-
-    cur.execute("""
-        INSERT INTO debts (
-            user_email,
-            amount,
-            description,
-            frequency,
-            remaining_amount,
-            paid_amount
-        )
-        VALUES (%s,%s,%s,%s,%s,%s)
-    """, (
-        data.user_email,
-        amount,
-        data.description,
-        data.frequency,
-        amount,
-        0
-    ))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-    return {"mensaje": "Deuda agregada"}
-
-# =========================
-# PAY DEBT
-# =========================
-@app.put("/pay_debt/{debt_id}")
-def pay_debt(debt_id: int, data: DebtPayment):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT amount, remaining_amount, paid_amount
-        FROM debts
-        WHERE id=%s
-    """, (debt_id,))
-
-    debt = cur.fetchone()
-
-    if not debt:
-
-        cur.close()
-        conn.close()
-
-        raise HTTPException(
-            status_code=404,
-            detail="Deuda no encontrada"
-        )
-
-    total_amount = float(debt["amount"] or 0)
-    remaining = float(debt["remaining_amount"] or total_amount)
-    paid = float(debt["paid_amount"] or 0)
-
-    payment = float(data.payment_amount)
-
-    if payment <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Abono inválido"
-        )
-
-    new_remaining = remaining - payment
-
-    if new_remaining < 0:
-        new_remaining = 0
-
-    new_paid = paid + payment
-
-    if new_remaining <= 0:
-
-        cur.execute(
-            "DELETE FROM debts WHERE id=%s",
-            (debt_id,)
-        )
-
-        conn.commit()
-
-        cur.close()
-        conn.close()
-
-        return {
-            "mensaje": "Deuda pagada completamente"
-        }
-
-    cur.execute("""
-        UPDATE debts
-        SET remaining_amount=%s,
-            paid_amount=%s
-        WHERE id=%s
-    """, (
-        new_remaining,
-        new_paid,
-        debt_id
-    ))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-    return {
-        "mensaje": "Abono realizado",
-        "remaining_amount": new_remaining,
-        "paid_amount": new_paid
-    }
-
-# =========================
-# DELETE DEBT
-# =========================
-@app.delete("/delete_debt/{debt_id}")
-def delete_debt(debt_id: int):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "DELETE FROM debts WHERE id=%s",
-        (debt_id,)
-    )
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-    return {"mensaje": "Deuda eliminada"}
 
 # =========================
 # ROOT

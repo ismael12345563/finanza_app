@@ -20,7 +20,8 @@ class _HomePageState extends State<HomePage> {
 
   bool hasCreditCard = false;
 
-  final String baseUrl = "http://192.168.0.17:8000";
+  // 🔥 URL DEL BACKEND
+  final String baseUrl = "https://finanza-app.onrender.com";
 
   @override
   void initState() {

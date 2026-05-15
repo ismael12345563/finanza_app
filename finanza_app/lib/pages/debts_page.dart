@@ -14,7 +14,8 @@ class DebtsPage extends StatefulWidget {
 class _DebtsPageState extends State<DebtsPage> {
   List debts = [];
 
-  final String baseUrl = "http://192.168.0.17:8000";
+  // 🔥 URL DEL BACKEND
+  final String baseUrl = "https://finanza-app.onrender.com";
 
   final amountController = TextEditingController();
   final descriptionController = TextEditingController();

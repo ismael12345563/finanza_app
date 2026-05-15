@@ -12,7 +12,8 @@ class PerfilPage extends StatefulWidget {
 }
 
 class _PerfilPageState extends State<PerfilPage> {
-  final String baseUrl = "http://192.168.0.17:8000";
+  // 🔥 URL DEL BACKEND
+  final String baseUrl = "https://finanza-app.onrender.com";
 
   String selectedStatus = "trabajando";
   bool isWorking = true;
