@@ -15,44 +15,11 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  bool hasCard = false;
-  String cardType = "Debito";
-
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
-  }
-
-  Widget cardOption(bool value, String text) {
-    bool selected = hasCard == value;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            hasCard = value;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: selected ? Colors.cyanAccent : const Color(0xFF1C1C2E),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white12),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            text,
-            style: TextStyle(
-              color: selected ? Colors.black : Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -78,8 +45,10 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
+
           child: Form(
             key: _formKey,
+
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -87,6 +56,7 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                   "Paso 3 de 4",
                   style: TextStyle(color: Colors.white70),
                 ),
+
                 const SizedBox(height: 8),
 
                 LinearProgressIndicator(
@@ -112,12 +82,14 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                 TextFormField(
                   controller: emailController,
                   style: const TextStyle(color: Colors.white),
+
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return "Ingresa tu correo";
                     }
                     return null;
                   },
+
                   decoration: InputDecoration(
                     prefixIcon: const Icon(
                       Icons.email,
@@ -140,12 +112,14 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                   controller: passwordController,
                   obscureText: true,
                   style: const TextStyle(color: Colors.white),
+
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return "Ingresa una contraseña";
                     }
                     return null;
                   },
+
                   decoration: InputDecoration(
                     prefixIcon: const Icon(
                       Icons.lock,
@@ -161,72 +135,34 @@ class _RegisterStep2PageState extends State<RegisterStep2Page> {
                   ),
                 ),
 
-                const SizedBox(height: 30),
-
-                const Text(
-                  "¿Cuentas con tarjeta?",
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
-
-                const SizedBox(height: 12),
-
-                Row(
-                  children: [
-                    cardOption(false, "NO"),
-                    const SizedBox(width: 10),
-                    cardOption(true, "SI"),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                if (hasCard)
-                  DropdownButtonFormField<String>(
-                    initialValue: cardType,
-                    dropdownColor: const Color(0xFF1C1C2E),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: "Tipo de tarjeta",
-                      labelStyle: const TextStyle(color: Colors.white70),
-                      filled: true,
-                      fillColor: const Color(0xFF1C1C2E),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: "Debito", child: Text("Débito")),
-                      DropdownMenuItem(
-                        value: "Credito",
-                        child: Text("Crédito"),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        cardType = value!;
-                      });
-                    },
-                  ),
-
                 const SizedBox(height: 40),
 
+                /// BOTÓN
                 SizedBox(
                   width: double.infinity,
+
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.cyanAccent,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
+
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
                         Navigator.pushNamed(
                           context,
                           '/financial_info',
-                          arguments: widget.accountType,
+
+                          arguments: {
+                            "accountType": widget.accountType,
+                            "email": emailController.text.trim(),
+                            "password": passwordController.text.trim(),
+                          },
                         );
                       }
                     },
+
                     child: const Text(
                       "Siguiente",
                       style: TextStyle(fontSize: 16),

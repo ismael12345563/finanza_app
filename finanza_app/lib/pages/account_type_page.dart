@@ -67,13 +67,16 @@ class _AccountTypePageState extends State<AccountTypePage> {
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
+
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
               const Text(
                 "Paso 2 de 4",
                 style: TextStyle(color: Colors.white70),
               ),
+
               const SizedBox(height: 8),
 
               LinearProgressIndicator(
@@ -96,6 +99,7 @@ class _AccountTypePageState extends State<AccountTypePage> {
               const SizedBox(height: 30),
 
               buildOption("personal", "Uso personal", Icons.person),
+
               buildOption(
                 "business",
                 "Tengo un negocio (PYME)",
@@ -106,12 +110,14 @@ class _AccountTypePageState extends State<AccountTypePage> {
 
               SizedBox(
                 width: double.infinity,
+
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.cyanAccent,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
+
                   onPressed: () {
                     if (selectedType != null) {
                       Navigator.pushNamed(
@@ -121,6 +127,7 @@ class _AccountTypePageState extends State<AccountTypePage> {
                       );
                     }
                   },
+
                   child: const Text(
                     "Siguiente",
                     style: TextStyle(fontSize: 16),

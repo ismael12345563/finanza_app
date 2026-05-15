@@ -5,10 +5,12 @@ import 'pages/register_page.dart';
 import 'pages/account_type_page.dart';
 import 'pages/register_step2_page.dart';
 import 'pages/financial_info_page.dart';
-
-// 👇 LOGIN + HOME
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
+import 'pages/income_page.dart';
+import 'pages/debt_page.dart';
+import 'pages/debts_page.dart';
+import 'pages/perfil_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -21,8 +23,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
-      // 🔥 puedes dejar esto así por ahora
       initialRoute: '/',
 
       routes: {
@@ -30,11 +30,53 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterPage(),
         '/account_type': (context) => const AccountTypePage(),
         '/login': (context) => const LoginPage(),
-        '/home': (context) => const HomePage(),
+
+        // HOME
+        '/home': (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              "Usuario";
+
+          return HomePage(email: email);
+        },
+
+        // INCOME
+        '/income': (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              "Usuario";
+
+          return IncomePage(email: email);
+        },
+
+        // DEBT FORM (agregar deuda)
+        '/debt': (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              "Usuario";
+
+          return DebtPage(email: email);
+        },
+
+        '/perfil': (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              "Usuario";
+
+          return PerfilPage(email: email);
+        },
+
+        // LISTA DE DEUDAS (ver deudas)
+        '/debts': (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              "Usuario";
+
+          return DebtsPage(email: email);
+        },
       },
 
       onGenerateRoute: (settings) {
-        // 🔥 STEP 2
         if (settings.name == '/register_step2') {
           final accountType = settings.arguments as String? ?? "personal";
 
@@ -43,16 +85,18 @@ class MyApp extends StatelessWidget {
           );
         }
 
-        // 🔥 FINANCIAL INFO
         if (settings.name == '/financial_info') {
-          final accountType = settings.arguments as String? ?? "personal";
+          final args = settings.arguments as Map<String, dynamic>;
 
           return MaterialPageRoute(
-            builder: (context) => FinancialInfoPage(accountType: accountType),
+            builder: (context) => FinancialInfoPage(
+              accountType: args['accountType'],
+              email: args['email'],
+              password: args['password'],
+            ),
           );
         }
 
-        // 🔥 fallback (evita crashes raros)
         return MaterialPageRoute(builder: (context) => const WelcomePage());
       },
     );

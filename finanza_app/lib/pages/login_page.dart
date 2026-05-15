@@ -13,15 +13,20 @@ class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
+  // 🔥 IP DE TU LAPTOP
+  final String baseUrl = "http://192.168.0.17:8000";
+
   Future<void> loginUser() async {
-    final url = Uri.parse("http://127.0.0.1:8000/login"); // 🔥 corregido
+    final url = Uri.parse("$baseUrl/login");
 
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    // 🔥 validación básica
+    // Validación básica
     if (email.isEmpty || password.isEmpty) {
-      print("Campos vacíos ❌");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Completa todos los campos")),
+      );
       return;
     }
 
@@ -40,12 +45,24 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         print("Login exitoso 🔥");
 
-        Navigator.pushReplacementNamed(context, '/home');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Inicio de sesión exitoso")),
+        );
+
+        if (!mounted) return;
+
+        Navigator.pushReplacementNamed(context, '/home', arguments: email);
       } else {
-        print("Error backend: ${response.body}");
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: ${response.body}")));
       }
     } catch (e) {
       print("Error conexión: $e");
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error de conexión: $e")));
     }
   }
 
@@ -71,6 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                 labelStyle: TextStyle(color: Colors.white70),
               ),
             ),
+
             const SizedBox(height: 20),
 
             TextField(
