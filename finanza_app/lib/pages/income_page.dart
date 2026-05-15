@@ -17,7 +17,6 @@ class _IncomePageState extends State<IncomePage> {
 
   List incomes = [];
 
-  // 🔥 URL DEL BACKEND
   final String baseUrl = "https://finanza-app.onrender.com";
 
   @override
@@ -33,9 +32,7 @@ class _IncomePageState extends State<IncomePage> {
     final amount = amountController.text.trim();
     final description = descriptionController.text.trim();
 
-    if (amount.isEmpty || description.isEmpty) {
-      return;
-    }
+    if (amount.isEmpty || description.isEmpty) return;
 
     try {
       final response = await http.post(
@@ -45,21 +42,23 @@ class _IncomePageState extends State<IncomePage> {
           "user_email": widget.email,
           "amount": amount,
           "description": description,
+          "frequency": "Unico",
         }),
       );
+
+      print("STATUS: ${response.statusCode}");
+      print("BODY: ${response.body}");
 
       if (response.statusCode == 200) {
         amountController.clear();
         descriptionController.clear();
-
         getIncomes();
-
         print("Ingreso agregado 🔥");
       } else {
-        print(response.body);
+        print("Error addIncome: ${response.body}");
       }
     } catch (e) {
-      print(e);
+      print("Error addIncome: $e");
     }
   }
 
@@ -95,13 +94,12 @@ class _IncomePageState extends State<IncomePage> {
 
       if (response.statusCode == 200) {
         getIncomes();
-
         print("Ingreso eliminado 🔥");
       } else {
         print(response.body);
       }
     } catch (e) {
-      print(e);
+      print("Error deleteIncome: $e");
     }
   }
 
@@ -111,8 +109,8 @@ class _IncomePageState extends State<IncomePage> {
   String formatDate(String date) {
     try {
       DateTime parsed = DateTime.parse(date);
-
-      return "${parsed.day}/${parsed.month}/${parsed.year}  ${parsed.hour}:${parsed.minute.toString().padLeft(2, '0')}";
+      return "${parsed.day}/${parsed.month}/${parsed.year} "
+          "${parsed.hour}:${parsed.minute.toString().padLeft(2, '0')}";
     } catch (e) {
       return date;
     }
@@ -129,87 +127,57 @@ class _IncomePageState extends State<IncomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
-
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text("Ingresos", style: TextStyle(color: Colors.white)),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(20),
-
         child: Column(
           children: [
-            // =========================
-            // MONTO
-            // =========================
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
               style: const TextStyle(color: Colors.white),
-
               decoration: InputDecoration(
                 labelText: "Monto",
                 labelStyle: const TextStyle(color: Colors.white70),
-
                 filled: true,
                 fillColor: const Color(0xFF1C1C2E),
-
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
-
             const SizedBox(height: 15),
-
-            // =========================
-            // DESCRIPCION
-            // =========================
             TextField(
               controller: descriptionController,
               style: const TextStyle(color: Colors.white),
-
               decoration: InputDecoration(
                 labelText: "Descripción",
                 labelStyle: const TextStyle(color: Colors.white70),
-
                 filled: true,
                 fillColor: const Color(0xFF1C1C2E),
-
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // =========================
-            // BOTON
-            // =========================
             SizedBox(
               width: double.infinity,
-
               child: ElevatedButton(
                 onPressed: addIncome,
-
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.cyanAccent,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-
                 child: const Text("Agregar ingreso"),
               ),
             ),
-
             const SizedBox(height: 30),
-
-            // =========================
-            // LISTA
-            // =========================
             Expanded(
               child: incomes.isEmpty
                   ? const Center(
@@ -220,53 +188,42 @@ class _IncomePageState extends State<IncomePage> {
                     )
                   : ListView.builder(
                       itemCount: incomes.length,
-
                       itemBuilder: (context, index) {
                         final income = incomes[index];
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 15),
                           padding: const EdgeInsets.all(16),
-
                           decoration: BoxDecoration(
                             color: const Color(0xFF1C1C2E),
                             borderRadius: BorderRadius.circular(16),
                           ),
-
                           child: Row(
                             children: [
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-
                                   children: [
                                     Text(
                                       income["description"] ?? "",
-
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-
                                     const SizedBox(height: 8),
-
                                     Text(
                                       "\$${income["amount"]}",
-
                                       style: const TextStyle(
                                         color: Colors.greenAccent,
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-
                                     const SizedBox(height: 8),
-
                                     Text(
                                       formatDate(income["created_at"] ?? ""),
-
                                       style: const TextStyle(
                                         color: Colors.white54,
                                         fontSize: 12,
@@ -275,12 +232,10 @@ class _IncomePageState extends State<IncomePage> {
                                   ],
                                 ),
                               ),
-
                               IconButton(
                                 onPressed: () {
                                   deleteIncome(income["id"]);
                                 },
-
                                 icon: const Icon(
                                   Icons.delete,
                                   color: Colors.redAccent,
