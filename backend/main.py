@@ -1,13 +1,18 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import psycopg2
+from psycopg2.extras import RealDictCursor
 from passlib.context import CryptContext
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 app = FastAPI()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# =========================
+# CORS
+# =========================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,10 +26,12 @@ app.add_middleware(
 # =========================
 def get_connection():
     return psycopg2.connect(
-        host="localhost",
-        database="astrofi_db",
-        user="postgres",
-        password="1234"
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=os.getenv("DB_PORT", "5432"),
+        cursor_factory=RealDictCursor
     )
 
 # =========================
@@ -64,8 +71,8 @@ class Debt(BaseModel):
 
 
 class DebtPayment(BaseModel):
-    debt_id: int
     payment_amount: float
+
 
 # =========================
 # PASSWORD
@@ -158,18 +165,24 @@ def register(user: User):
                 ))
 
         conn.commit()
+
         return {"mensaje": "Usuario creado"}
 
     except HTTPException as e:
         raise e
 
     except Exception as e:
+
         if conn:
             conn.rollback()
 
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     finally:
+
         if cur:
             cur.close()
 
@@ -182,26 +195,41 @@ def register(user: User):
 @app.post("/login")
 def login(data: LoginRequest):
 
-    conn = get_connection()
-    cur = conn.cursor()
+    conn = None
+    cur = None
 
-    cur.execute(
-        "SELECT password FROM users WHERE email=%s",
-        (data.email.strip(),)
-    )
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
 
-    row = cur.fetchone()
+        cur.execute(
+            "SELECT password FROM users WHERE email=%s",
+            (data.email.strip(),)
+        )
 
-    cur.close()
-    conn.close()
+        row = cur.fetchone()
 
-    if not row:
-        raise HTTPException(status_code=404, detail="Usuario no existe")
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no existe"
+            )
 
-    if verify_password(data.password, row[0]):
-        return {"mensaje": "Login ok"}
+        if verify_password(data.password, row["password"]):
+            return {"mensaje": "Login ok"}
 
-    raise HTTPException(status_code=401, detail="Password incorrecta")
+        raise HTTPException(
+            status_code=401,
+            detail="Password incorrecta"
+        )
+
+    finally:
+
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()
 
 # =========================
 # GET USER
@@ -224,15 +252,18 @@ def get_user(email: str):
     conn.close()
 
     if not row:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
 
     return {
-        "email": row[0],
-        "has_credit_card": row[1] or False
+        "email": row["email"],
+        "has_credit_card": row["has_credit_card"] or False
     }
 
 # =========================
-# INCOMES
+# GET INCOMES
 # =========================
 @app.get("/get_incomes/{email}")
 def get_incomes(email: str):
@@ -252,18 +283,11 @@ def get_incomes(email: str):
     cur.close()
     conn.close()
 
-    return [
-        {
-            "id": r[0],
-            "amount": float(r[1] or 0),
-            "description": r[2] or "",
-            "frequency": r[3] or "",
-            "created_at": str(r[4])
-        }
-        for r in rows
-    ]
+    return rows
 
-
+# =========================
+# ADD INCOME
+# =========================
 @app.post("/add_income")
 def add_income(data: Income):
 
@@ -314,7 +338,7 @@ def delete_income(income_id: int):
     return {"mensaje": "Ingreso eliminado"}
 
 # =========================
-# DEBTS
+# GET DEBTS
 # =========================
 @app.get("/get_debts/{email}")
 def get_debts(email: str):
@@ -341,20 +365,11 @@ def get_debts(email: str):
     cur.close()
     conn.close()
 
-    return [
-        {
-            "id": r[0],
-            "amount": float(r[1] or 0),
-            "description": r[2] or "",
-            "frequency": r[3] or "",
-            "created_at": str(r[4]),
-            "remaining_amount": float(r[5] or r[1] or 0),
-            "paid_amount": float(r[6] or 0),
-        }
-        for r in rows
-    ]
+    return rows
 
-
+# =========================
+# ADD DEBT
+# =========================
 @app.post("/add_debt")
 def add_debt(data: Debt):
 
@@ -389,13 +404,11 @@ def add_debt(data: Debt):
 
     return {"mensaje": "Deuda agregada"}
 
-
-
 # =========================
-# ABONAR DEUDA
+# PAY DEBT
 # =========================
 @app.put("/pay_debt/{debt_id}")
-def pay_debt(debt_id: int, data: dict):
+def pay_debt(debt_id: int, data: DebtPayment):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -409,6 +422,7 @@ def pay_debt(debt_id: int, data: dict):
     debt = cur.fetchone()
 
     if not debt:
+
         cur.close()
         conn.close()
 
@@ -417,11 +431,11 @@ def pay_debt(debt_id: int, data: dict):
             detail="Deuda no encontrada"
         )
 
-    total_amount = float(debt[0] or 0)
-    remaining = float(debt[1] or total_amount)
-    paid = float(debt[2] or 0)
+    total_amount = float(debt["amount"] or 0)
+    remaining = float(debt["remaining_amount"] or total_amount)
+    paid = float(debt["paid_amount"] or 0)
 
-    payment = float(data["payment_amount"])
+    payment = float(data.payment_amount)
 
     if payment <= 0:
         raise HTTPException(
@@ -436,7 +450,6 @@ def pay_debt(debt_id: int, data: dict):
 
     new_paid = paid + payment
 
-    # Si ya pagó toda la deuda
     if new_remaining <= 0:
 
         cur.execute(
@@ -453,7 +466,6 @@ def pay_debt(debt_id: int, data: dict):
             "mensaje": "Deuda pagada completamente"
         }
 
-    # Actualizar deuda
     cur.execute("""
         UPDATE debts
         SET remaining_amount=%s,
@@ -475,6 +487,7 @@ def pay_debt(debt_id: int, data: dict):
         "remaining_amount": new_remaining,
         "paid_amount": new_paid
     }
+
 # =========================
 # DELETE DEBT
 # =========================
@@ -501,4 +514,4 @@ def delete_debt(debt_id: int):
 # =========================
 @app.get("/")
 def root():
-    return {"mensaje": "AstroFi OK 🚀"}
+    return {"mensaje": "AstroFi API OK 🚀"}

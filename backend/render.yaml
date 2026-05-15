@@ -2,5 +2,7 @@ services:
   - type: web
     name: astrofi-backend
     runtime: python
+
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
+
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
