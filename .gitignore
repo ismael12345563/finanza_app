@@ -10,5 +10,5 @@ backend/venv/
 .env
 
 # Models / IA
-*.pkl
+# *.pkl
 IA_HUGO/
