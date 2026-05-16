@@ -6,6 +6,10 @@ from passlib.context import CryptContext
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
+
+from dotenv import load_dotenv
+load_dotenv()
+
 app = FastAPI()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -31,7 +35,8 @@ def get_connection():
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         port=os.getenv("DB_PORT", "5432"),
-        cursor_factory=RealDictCursor
+        cursor_factory=RealDictCursor,
+        sslmode="require"
     )
 
 # =========================
@@ -515,3 +520,69 @@ def delete_debt(debt_id: int):
 @app.get("/")
 def root():
     return {"mensaje": "AstroFi API OK 🚀"}
+
+import joblib
+import pandas as pd
+
+model = joblib.load("modelo.pkl")
+
+
+class PredictRequest(BaseModel):
+    email: str
+
+
+@app.post("/predict")
+def predict(data: PredictRequest):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT *
+        FROM users
+        WHERE email=%s
+    """, (data.email,))
+
+    user = cur.fetchone()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # =========================
+    # 🔥 TRADUCCIÓN A FEATURES DEL MODELO
+    # =========================
+    import pandas as pd
+
+    input_df = pd.DataFrame([{
+        "monthly_income_usd": float(user["income"] or 0),
+        "monthly_expenses_usd": float(user["debt_amount"] or 0),
+        "credit_score": 600,  # default seguro
+        "debt_to_income_ratio": float(user["debt_amount"] or 0) / (float(user["income"] or 1)),
+        "savings_to_income_ratio": 0.2,  # default simple
+        "employment_status": "Employed" if user["works"] else "Unemployed"
+    }])
+
+    # one-hot encoding igual que entrenamiento
+    input_df = pd.get_dummies(input_df)
+
+    # alinear con modelo
+    input_df = input_df.reindex(columns=model.feature_names_in_, fill_value=0)
+
+    prediction = model.predict(input_df)[0]
+
+    income = float(user["income"] or 0)
+
+    advice = []
+
+    if prediction > income:
+        advice.append("⚠️ Estás gastando más de lo que ganas")
+    elif prediction < income * 0.7:
+        advice.append("✅ Buen control de gastos")
+    else:
+        advice.append("📊 Gastos normales")
+
+    return {
+        "prediccion_gasto": float(prediction),
+        "ingreso_usuario": income,
+        "consejos": advice
+    }
