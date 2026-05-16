@@ -3,3 +3,7 @@ uvicorn
 psycopg2-binary
 passlib[bcrypt]
 bcrypt==4.0.1
+python-dotenv
+pandas
+scikit-learn
+joblib
