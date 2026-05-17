@@ -514,6 +514,98 @@ def delete_debt(debt_id: int):
 
     return {"mensaje": "Deuda eliminada"}
 
+    # =========================
+# MODELO EXPENSE
+# =========================
+class Expense(BaseModel):
+    user_email: str
+    amount: str
+    description: str
+    category: str
+
+
+# =========================
+# GET EXPENSES
+# =========================
+@app.get("/get_expenses/{email}")
+def get_expenses(email: str):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            id,
+            amount,
+            description,
+            category,
+            created_at
+        FROM expenses
+        WHERE user_email=%s
+        ORDER BY id DESC
+    """, (email,))
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+
+# =========================
+# ADD EXPENSE
+# =========================
+@app.post("/add_expense")
+def add_expense(data: Expense):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO expenses (
+            user_email,
+            amount,
+            description,
+            category
+        )
+        VALUES (%s,%s,%s,%s)
+    """, (
+        data.user_email,
+        data.amount,
+        data.description,
+        data.category
+    ))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {"mensaje": "Gasto agregado"}
+
+
+# =========================
+# DELETE EXPENSE
+# =========================
+@app.delete("/delete_expense/{expense_id}")
+def delete_expense(expense_id: int):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "DELETE FROM expenses WHERE id=%s",
+        (expense_id,)
+    )
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {"mensaje": "Gasto eliminado"}
+
 # =========================
 # ROOT
 # =========================

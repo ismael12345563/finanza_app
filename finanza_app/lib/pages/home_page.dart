@@ -20,6 +20,13 @@ class _HomePageState extends State<HomePage> {
 
   bool hasCreditCard = false;
 
+  // =========================
+  // IA
+  // =========================
+  List<String> aiTips = [];
+  double predictedExpense = 0;
+  bool loadingAI = true;
+
   // 🔥 URL DEL BACKEND
   final String baseUrl = "https://finanza-app.onrender.com";
 
@@ -29,6 +36,7 @@ class _HomePageState extends State<HomePage> {
     getIncomes();
     getDebts();
     getUserProfile();
+    getPrediction();
   }
 
   // =========================
@@ -135,12 +143,47 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // =========================
+  // IA PREDICTION
+  // =========================
+  Future<void> getPrediction() async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/predict"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": widget.email}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (!mounted) return;
+
+        setState(() {
+          predictedExpense =
+              double.tryParse(data["prediccion_gasto"].toString()) ?? 0;
+
+          aiTips = List<String>.from(data["consejos"] ?? []);
+
+          loadingAI = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error IA: $e");
+
+      setState(() {
+        loadingAI = false;
+      });
+    }
+  }
+
   void goTo(String route) async {
     await Navigator.pushNamed(context, route, arguments: widget.email);
 
     getIncomes();
     getDebts();
     getUserProfile();
+    getPrediction();
   }
 
   @override
@@ -164,6 +207,7 @@ class _HomePageState extends State<HomePage> {
               getIncomes();
               getDebts();
               getUserProfile();
+              getPrediction();
             },
             icon: const Icon(Icons.refresh),
           ),
@@ -299,20 +343,98 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.all(20),
 
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1C1C2E),
-                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1C1C2E), Color(0xFF252542)],
+                  ),
+                  borderRadius: BorderRadius.circular(22),
                 ),
 
-                child: Row(
-                  children: const [
-                    Icon(Icons.auto_awesome, color: Colors.cyanAccent),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
 
-                    SizedBox(width: 12),
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.auto_awesome, color: Colors.cyanAccent),
 
-                    Text(
-                      "IA Financiera activa",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                        SizedBox(width: 12),
+
+                        Text(
+                          "IA Financiera activa",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
+
+                    const SizedBox(height: 20),
+
+                    if (loadingAI)
+                      const Center(child: CircularProgressIndicator())
+                    else ...[
+                      Text(
+                        "Predicción de gasto mensual",
+                        style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Text(
+                        "\$${predictedExpense.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      const Text(
+                        "Insights IA",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 15),
+
+                      ...aiTips.map(
+                        (tip) => Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.check_circle,
+                                color: Colors.greenAccent,
+                                size: 20,
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              Expanded(
+                                child: Text(
+                                  tip,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
