@@ -514,7 +514,7 @@ def delete_debt(debt_id: int):
 
     return {"mensaje": "Deuda eliminada"}
 
-    # =========================
+# =========================
 # MODELO EXPENSE
 # =========================
 class Expense(BaseModel):
@@ -613,6 +613,9 @@ def delete_expense(expense_id: int):
 def root():
     return {"mensaje": "AstroFi API OK 🚀"}
 
+# =========================
+# IA MODEL
+# =========================
 import joblib
 import pandas as pd
 
@@ -629,6 +632,9 @@ def predict(data: PredictRequest):
     conn = get_connection()
     cur = conn.cursor()
 
+    # =========================
+    # USER
+    # =========================
     cur.execute("""
         SELECT *
         FROM users
@@ -638,43 +644,92 @@ def predict(data: PredictRequest):
     user = cur.fetchone()
 
     if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
 
     # =========================
-    # 🔥 TRADUCCIÓN A FEATURES DEL MODELO
+    # GASTOS REALES
     # =========================
-    import pandas as pd
+    cur.execute("""
+        SELECT COALESCE(SUM(amount), 0) AS total_expenses
+        FROM expenses
+        WHERE user_email=%s
+    """, (data.email,))
 
+    expenses_result = cur.fetchone()
+
+    total_expenses = float(
+        expenses_result["total_expenses"] or 0
+    )
+
+    # =========================
+    # FEATURES IA
+    # =========================
     input_df = pd.DataFrame([{
-        "monthly_income_usd": float(user["income"] or 0),
-        "monthly_expenses_usd": float(user["debt_amount"] or 0),
-        "credit_score": 600,  # default seguro
-        "debt_to_income_ratio": float(user["debt_amount"] or 0) / (float(user["income"] or 1)),
-        "savings_to_income_ratio": 0.2,  # default simple
-        "employment_status": "Employed" if user["works"] else "Unemployed"
+        "monthly_income_usd":
+            float(user["income"] or 0),
+
+        "monthly_expenses_usd":
+            total_expenses,
+
+        "credit_score":
+            600,
+
+        "debt_to_income_ratio":
+            float(user["debt_amount"] or 0)
+            / (float(user["income"] or 1)),
+
+        "savings_to_income_ratio":
+            0.2,
+
+        "employment_status":
+            "Employed"
+            if user["works"]
+            else "Unemployed"
     }])
 
-    # one-hot encoding igual que entrenamiento
+    # =========================
+    # ONE HOT
+    # =========================
     input_df = pd.get_dummies(input_df)
 
-    # alinear con modelo
-    input_df = input_df.reindex(columns=model.feature_names_in_, fill_value=0)
+    input_df = input_df.reindex(
+        columns=model.feature_names_in_,
+        fill_value=0
+    )
 
     prediction = model.predict(input_df)[0]
 
     income = float(user["income"] or 0)
 
+    # =========================
+    # CONSEJOS
+    # =========================
     advice = []
 
     if prediction > income:
-        advice.append("⚠️ Estás gastando más de lo que ganas")
+        advice.append(
+            "⚠️ Estás gastando más de lo que ganas"
+        )
+
     elif prediction < income * 0.7:
-        advice.append("✅ Buen control de gastos")
+        advice.append(
+            "✅ Buen control de gastos"
+        )
+
     else:
-        advice.append("📊 Gastos normales")
+        advice.append(
+            "📊 Gastos normales"
+        )
+
+    cur.close()
+    conn.close()
 
     return {
         "prediccion_gasto": float(prediction),
+        "gastos_reales": total_expenses,
         "ingreso_usuario": income,
         "consejos": advice
     }

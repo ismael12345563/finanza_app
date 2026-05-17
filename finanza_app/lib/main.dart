@@ -11,6 +11,7 @@ import 'pages/income_page.dart';
 import 'pages/debt_page.dart';
 import 'pages/debts_page.dart';
 import 'pages/perfil_page.dart';
+import 'pages/expenses_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -73,6 +74,14 @@ class MyApp extends StatelessWidget {
               "Usuario";
 
           return DebtsPage(email: email);
+        },
+
+        '/expenses': (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              "Usuario";
+
+          return ExpensesPage(email: email);
         },
       },
 

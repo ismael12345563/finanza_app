@@ -468,7 +468,12 @@ class _HomePageState extends State<HomePage> {
 
               Row(
                 children: [
-                  Expanded(child: actionButton("IA", Icons.auto_awesome)),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => goTo('/expenses'),
+                      child: actionButton("Gastos", Icons.shopping_cart),
+                    ),
+                  ),
 
                   const SizedBox(width: 15),
 
