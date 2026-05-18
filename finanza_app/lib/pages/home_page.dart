@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:fl_chart/fl_chart.dart';
 
 class HomePage extends StatefulWidget {
   final String email;
@@ -14,6 +15,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List incomes = [];
   List debts = [];
+  List expenses = [];
+
+  Map<String, double> categoryTotals = {};
 
   double totalIncome = 0;
   double totalDebt = 0;
@@ -26,6 +30,8 @@ class _HomePageState extends State<HomePage> {
   List<String> aiTips = [];
   double predictedExpense = 0;
   bool loadingAI = true;
+  List<String> aiAlerts = [];
+  String riskLevel = "low";
 
   // 🔥 URL DEL BACKEND
   final String baseUrl = "https://finanza-app.onrender.com";
@@ -35,13 +41,24 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     getIncomes();
     getDebts();
+    getExpenses();
     getUserProfile();
     getPrediction();
   }
 
-  // =========================
-  // FORMATEAR FECHA
-  // =========================
+  void buildCategoryData() {
+    categoryTotals.clear();
+
+    for (var expense in expenses) {
+      final category = expense["category"] ?? "Otros";
+      final amount = double.tryParse(expense["amount"].toString()) ?? 0;
+
+      categoryTotals[category] = (categoryTotals[category] ?? 0) + amount;
+    }
+
+    setState(() {});
+  }
+
   String formatDate(String date) {
     try {
       DateTime parsed = DateTime.parse(date);
@@ -52,9 +69,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // =========================
-  // USUARIO
-  // =========================
   Future<void> getUserProfile() async {
     try {
       final res = await http.get(
@@ -83,9 +97,26 @@ class _HomePageState extends State<HomePage> {
     return parsed;
   }
 
-  // =========================
-  // INGRESOS
-  // =========================
+  Future<void> getExpenses() async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/get_expenses/${widget.email}"),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          expenses = data;
+        });
+
+        buildCategoryData();
+      }
+    } catch (e) {
+      debugPrint("Error expenses: $e");
+    }
+  }
+
   Future<void> getIncomes() async {
     try {
       final response = await http.get(
@@ -113,9 +144,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // =========================
-  // DEUDAS
-  // =========================
   Future<void> getDebts() async {
     try {
       final response = await http.get(
@@ -143,9 +171,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // =========================
-  // IA PREDICTION
-  // =========================
   Future<void> getPrediction() async {
     try {
       final response = await http.post(
@@ -164,6 +189,8 @@ class _HomePageState extends State<HomePage> {
               double.tryParse(data["prediccion_gasto"].toString()) ?? 0;
 
           aiTips = List<String>.from(data["consejos"] ?? []);
+          aiAlerts = List<String>.from(data["alerts"] ?? []);
+          riskLevel = data["risk_level"] ?? "low";
 
           loadingAI = false;
         });
@@ -182,6 +209,7 @@ class _HomePageState extends State<HomePage> {
 
     getIncomes();
     getDebts();
+    getExpenses();
     getUserProfile();
     getPrediction();
   }
@@ -201,11 +229,13 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text("Astro Fi"),
+
         actions: [
           IconButton(
             onPressed: () {
               getIncomes();
               getDebts();
+              getExpenses();
               getUserProfile();
               getPrediction();
             },
@@ -238,6 +268,66 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(color: Colors.white70),
               ),
 
+              const SizedBox(height: 20),
+
+              // =========================
+              // GRAFICA
+              // =========================
+              Container(
+                margin: const EdgeInsets.only(top: 20),
+                padding: const EdgeInsets.all(20),
+
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C2E),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+
+                  children: [
+                    const Text(
+                      "Gastos por categoría",
+                      style: TextStyle(color: Colors.white, fontSize: 18),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    SizedBox(
+                      height: 220,
+
+                      child: categoryTotals.isEmpty
+                          ? const Center(
+                              child: Text(
+                                "Sin datos de gastos",
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            )
+                          : PieChart(
+                              PieChartData(
+                                sections: categoryTotals.entries.map((entry) {
+                                  return PieChartSectionData(
+                                    value: entry.value,
+                                    title: entry.key,
+                                    radius: 60,
+
+                                    color:
+                                        Colors.primaries[entry.key.hashCode %
+                                            Colors.primaries.length],
+
+                                    titleStyle: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 30),
 
               // =========================
@@ -245,10 +335,12 @@ class _HomePageState extends State<HomePage> {
               // =========================
               Container(
                 padding: const EdgeInsets.all(24),
+
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF1C1C2E), Color(0xFF2A2A40)],
                   ),
+
                   borderRadius: BorderRadius.circular(24),
                 ),
 
@@ -265,6 +357,7 @@ class _HomePageState extends State<HomePage> {
 
                     Text(
                       "\$${safeBalance.toStringAsFixed(2)}",
+
                       style: const TextStyle(
                         color: Colors.cyanAccent,
                         fontSize: 36,
@@ -300,11 +393,12 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 20),
 
               // =========================
-              // TARJETA DE CRÉDITO
+              // TARJETA
               // =========================
               if (hasCreditCard)
                 Container(
                   padding: const EdgeInsets.all(20),
+
                   decoration: BoxDecoration(
                     color: const Color(0xFF2A2A40),
                     borderRadius: BorderRadius.circular(20),
@@ -316,6 +410,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Text(
                         "💳 Tarjeta de Crédito",
+
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -346,6 +441,7 @@ class _HomePageState extends State<HomePage> {
                   gradient: const LinearGradient(
                     colors: [Color(0xFF1C1C2E), Color(0xFF252542)],
                   ),
+
                   borderRadius: BorderRadius.circular(22),
                 ),
 
@@ -361,6 +457,7 @@ class _HomePageState extends State<HomePage> {
 
                         Text(
                           "IA Financiera activa",
+
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -384,6 +481,7 @@ class _HomePageState extends State<HomePage> {
 
                       Text(
                         "\$${predictedExpense.toStringAsFixed(2)}",
+
                         style: const TextStyle(
                           color: Colors.cyanAccent,
                           fontSize: 28,
@@ -395,6 +493,7 @@ class _HomePageState extends State<HomePage> {
 
                       const Text(
                         "Insights IA",
+
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -404,36 +503,98 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 15),
 
-                      ...aiTips.map(
-                        (tip) => Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(14),
+                      ...aiTips
+                          .map(
+                            (tip) => Container(
+                              margin: const EdgeInsets.only(bottom: 12),
 
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                              padding: const EdgeInsets.all(14),
 
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle,
-                                color: Colors.greenAccent,
-                                size: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.05),
+
+                                borderRadius: BorderRadius.circular(14),
                               ),
 
-                              const SizedBox(width: 10),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.greenAccent,
+                                    size: 20,
+                                  ),
 
-                              Expanded(
-                                child: Text(
-                                  tip,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
+                                  const SizedBox(width: 10),
+
+                                  Expanded(
+                                    child: Text(
+                                      tip,
+
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                          )
+                          .toList(),
+
+                      const SizedBox(height: 20),
+
+                      const Text(
+                        "🚨 Alertas Inteligentes",
+
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+
+                      const SizedBox(height: 10),
+
+                      ...aiAlerts
+                          .map(
+                            (alert) => Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+
+                              padding: const EdgeInsets.all(14),
+
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.1),
+
+                                borderRadius: BorderRadius.circular(14),
+
+                                border: Border.all(
+                                  color: Colors.redAccent.withOpacity(0.3),
+                                ),
+                              ),
+
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.warning,
+                                    color: Colors.redAccent,
+                                  ),
+
+                                  const SizedBox(width: 10),
+
+                                  Expanded(
+                                    child: Text(
+                                      alert,
+
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ],
                   ],
                 ),
@@ -449,6 +610,7 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () => goTo('/income'),
+
                       child: actionButton("Ingresos", Icons.attach_money),
                     ),
                   ),
@@ -458,7 +620,24 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () => goTo('/debts'),
+
                       child: actionButton("Deudas", Icons.money_off),
+                    ),
+                  ),
+
+                  const SizedBox(width: 15),
+
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/card',
+                          arguments: widget.email,
+                        );
+                      },
+
+                      child: actionButton("Tarjeta", Icons.credit_card),
                     ),
                   ),
                 ],
@@ -471,6 +650,7 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () => goTo('/expenses'),
+
                       child: actionButton("Gastos", Icons.shopping_cart),
                     ),
                   ),
@@ -480,121 +660,12 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () => goTo('/perfil'),
+
                       child: actionButton("Perfil", Icons.person),
                     ),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 35),
-
-              // =========================
-              // INGRESOS RECIENTES
-              // =========================
-              const Text(
-                "Ingresos recientes",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              if (incomes.isEmpty)
-                const Text(
-                  "No hay ingresos",
-                  style: TextStyle(color: Colors.white70),
-                ),
-
-              ...incomes.take(5).map((income) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 15),
-                  padding: const EdgeInsets.all(18),
-
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C2E),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white10),
-                  ),
-
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-
-                        decoration: BoxDecoration(
-                          color: Colors.greenAccent.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-
-                        child: const Icon(
-                          Icons.arrow_downward,
-                          color: Colors.greenAccent,
-                        ),
-                      ),
-
-                      const SizedBox(width: 15),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-
-                          children: [
-                            Text(
-                              income["description"] ?? "",
-
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-
-                            const SizedBox(height: 6),
-
-                            Text(
-                              formatDate(income["created_at"] ?? ""),
-
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-
-                        children: [
-                          Text(
-                            "+ \$${income["amount"]}",
-
-                            style: const TextStyle(
-                              color: Colors.greenAccent,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-
-                          const SizedBox(height: 5),
-
-                          const Text(
-                            "Ingreso",
-                            style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
             ],
           ),
         ),
@@ -629,6 +700,7 @@ class _HomePageState extends State<HomePage> {
 
           Text(
             amount,
+
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -657,6 +729,7 @@ class _HomePageState extends State<HomePage> {
 
           Text(
             text,
+
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,

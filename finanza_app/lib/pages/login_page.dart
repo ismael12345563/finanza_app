@@ -13,24 +13,28 @@ class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  // 🔥 IP DE TU LAPTOP
-  // 🔥 URL DEL BACKEND
   final String baseUrl = "https://finanza-app.onrender.com";
 
-  Future<void> loginUser() async {
-    final url = Uri.parse("$baseUrl/login");
+  bool isLoading = false;
 
+  Future<void> loginUser() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    // Validación básica
     if (email.isEmpty || password.isEmpty) {
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Completa todos los campos")),
       );
       return;
     }
 
+    setState(() {
+      isLoading = true;
+    });
+
+    final url = Uri.parse("$baseUrl/login");
     final data = {"email": email, "password": password};
 
     try {
@@ -43,14 +47,16 @@ class _LoginPageState extends State<LoginPage> {
       print("STATUS: ${response.statusCode}");
       print("BODY: ${response.body}");
 
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+
       if (response.statusCode == 200) {
-        print("Login exitoso 🔥");
-
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Inicio de sesión exitoso")),
+          const SnackBar(content: Text("Inicio de sesión exitoso 🔥")),
         );
-
-        if (!mounted) return;
 
         Navigator.pushReplacementNamed(context, '/home', arguments: email);
       } else {
@@ -61,10 +67,23 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       print("Error conexión: $e");
 
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error de conexión: $e")));
     }
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -107,13 +126,22 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: loginUser,
+                onPressed: isLoading ? null : loginUser,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.cyanAccent,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text("Entrar"),
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : const Text("Entrar"),
               ),
             ),
           ],

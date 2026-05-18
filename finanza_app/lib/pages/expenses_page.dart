@@ -52,7 +52,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
         setState(() {
           expenses = data;
-        });
+        }); // 🔥 ESTO ES CLAVE
       }
     } catch (e) {
       debugPrint("Error expenses: $e");
@@ -77,7 +77,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_email": widget.email,
-          "amount": amountController.text,
+          "amount": double.parse(amountController.text),
           "description": descriptionController.text,
           "category": selectedCategory,
         }),

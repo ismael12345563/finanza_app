@@ -23,17 +23,18 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
 
   bool works = false;
   bool hasDebt = false;
-  bool hasCard = false;
 
   final incomeController = TextEditingController();
   final debtAmountController = TextEditingController();
   final debtPaymentController = TextEditingController();
 
-  String cardType = "Débito";
   String incomeFrequency = "Mensual";
   String debtFrequency = "Mensual";
 
-  // 🔥 URL DEL BACKEND
+  /// CARD TYPE:
+  /// none | debit | credit | both
+  String cardType = "none";
+
   final String baseUrl = "https://finanza-app.onrender.com";
 
   @override
@@ -50,15 +51,11 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+        child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             color: selected ? Colors.cyanAccent : const Color(0xFF1C1C2E),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? Colors.cyanAccent : Colors.white10,
-            ),
           ),
           alignment: Alignment.center,
           child: Text(
@@ -79,7 +76,6 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
     required Widget child,
   }) {
     return Container(
-      width: double.infinity,
       margin: const EdgeInsets.only(bottom: 22),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -104,9 +100,7 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
               ),
             ],
           ),
-
           const SizedBox(height: 18),
-
           child,
         ],
       ),
@@ -140,7 +134,7 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
       "debtAmount": hasDebt ? debtAmountController.text.trim() : "0",
       "debtPayment": hasDebt ? debtPaymentController.text.trim() : "0",
       "debtFrequency": debtFrequency,
-      "hasCreditCard": hasCard,
+      "cardType": cardType,
     };
 
     try {
@@ -176,260 +170,243 @@ class _FinancialInfoPageState extends State<FinancialInfoPage> {
       backgroundColor: const Color(0xFF0B0B14),
 
       appBar: AppBar(
-        elevation: 0,
         backgroundColor: Colors.transparent,
-        title: const Text(
-          "Información financiera",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text("Información financiera"),
       ),
 
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Paso 4 de 4",
+                style: TextStyle(color: Colors.white54),
+              ),
 
-          child: Form(
-            key: _formKey,
+              const SizedBox(height: 8),
 
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Paso 4 de 4",
-                  style: TextStyle(color: Colors.white54, fontSize: 15),
+              const Text(
+                "Cuéntanos sobre tus finanzas",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
 
-                const SizedBox(height: 8),
+              const SizedBox(height: 30),
 
-                const Text(
-                  "Cuéntanos un poco sobre tus finanzas",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              // ================= TRABAJO =================
+              sectionCard(
+                icon: Icons.work_outline,
+                title: "Trabajo",
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        yesNoButton(
+                          true,
+                          works,
+                          "SI",
+                          () => setState(() => works = true),
+                        ),
+                        const SizedBox(width: 10),
+                        yesNoButton(
+                          false,
+                          works,
+                          "NO",
+                          () => setState(() => works = false),
+                        ),
+                      ],
+                    ),
 
-                const SizedBox(height: 35),
+                    if (works) ...[
+                      const SizedBox(height: 20),
 
-                // ==========================
-                // TRABAJO
-                // ==========================
-                sectionCard(
-                  icon: Icons.work_outline,
-                  title: "Trabajo",
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          yesNoButton(true, works, "SI", () {
-                            setState(() => works = true);
-                          }),
-                          const SizedBox(width: 12),
-                          yesNoButton(false, works, "NO", () {
-                            setState(() => works = false);
-                          }),
-                        ],
+                      TextField(
+                        controller: incomeController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: customInput("Ingreso mensual"),
                       ),
 
-                      if (works) ...[
-                        const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                        TextField(
-                          controller: incomeController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: customInput("¿Cuánto ganas?"),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        DropdownButtonFormField<String>(
-                          value: incomeFrequency,
-                          dropdownColor: const Color(0xFF1C1C2E),
-                          style: const TextStyle(color: Colors.white),
-                          decoration: customInput(
-                            "¿Cada cuánto recibes el ingreso?",
+                      DropdownButtonFormField<String>(
+                        value: incomeFrequency,
+                        dropdownColor: const Color(0xFF1C1C2E),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: customInput("Frecuencia de ingreso"),
+                        items: const [
+                          DropdownMenuItem(
+                            value: "Semanal",
+                            child: Text("Semanal"),
                           ),
-
-                          items: const [
-                            DropdownMenuItem(
-                              value: "Semanal",
-                              child: Text("Semanal"),
-                            ),
-                            DropdownMenuItem(
-                              value: "Quincenal",
-                              child: Text("Quincenal"),
-                            ),
-                            DropdownMenuItem(
-                              value: "Mensual",
-                              child: Text("Mensual"),
-                            ),
-                          ],
-
-                          onChanged: (value) {
-                            setState(() {
-                              incomeFrequency = value!;
-                            });
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                // ==========================
-                // TARJETA
-                // ==========================
-                sectionCard(
-                  icon: Icons.credit_card,
-                  title: "Tarjetas",
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          yesNoButton(true, hasCard, "SI", () {
-                            setState(() => hasCard = true);
-                          }),
-                          const SizedBox(width: 12),
-                          yesNoButton(false, hasCard, "NO", () {
-                            setState(() => hasCard = false);
-                          }),
+                          DropdownMenuItem(
+                            value: "Quincenal",
+                            child: Text("Quincenal"),
+                          ),
+                          DropdownMenuItem(
+                            value: "Mensual",
+                            child: Text("Mensual"),
+                          ),
                         ],
+                        onChanged: (value) {
+                          setState(() {
+                            incomeFrequency = value ?? "Mensual";
+                          });
+                        },
                       ),
+                    ],
+                  ],
+                ),
+              ),
 
-                      if (hasCard) ...[
-                        const SizedBox(height: 20),
-
-                        DropdownButtonFormField<String>(
-                          value: cardType,
-                          dropdownColor: const Color(0xFF1C1C2E),
-                          style: const TextStyle(color: Colors.white),
-                          decoration: customInput("Tipo de tarjeta"),
-
-                          items: const [
-                            DropdownMenuItem(
-                              value: "Débito",
-                              child: Text("Débito"),
-                            ),
-                            DropdownMenuItem(
-                              value: "Crédito",
-                              child: Text("Crédito"),
-                            ),
-                          ],
-
-                          onChanged: (value) {
-                            setState(() {
-                              cardType = value!;
-                            });
-                          },
+              // ================= TARJETAS =================
+              sectionCard(
+                icon: Icons.credit_card,
+                title: "Tarjetas",
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        yesNoButton(
+                          true,
+                          cardType != "none",
+                          "SI",
+                          () => setState(() => cardType = "debit"),
+                        ),
+                        const SizedBox(width: 10),
+                        yesNoButton(
+                          false,
+                          cardType == "none",
+                          "NO",
+                          () => setState(() => cardType = "none"),
                         ),
                       ],
-                    ],
-                  ),
-                ),
-
-                // ==========================
-                // DEUDAS
-                // ==========================
-                sectionCard(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: "Deudas",
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          yesNoButton(true, hasDebt, "SI", () {
-                            setState(() => hasDebt = true);
-                          }),
-                          const SizedBox(width: 12),
-                          yesNoButton(false, hasDebt, "NO", () {
-                            setState(() => hasDebt = false);
-                          }),
-                        ],
-                      ),
-
-                      if (hasDebt) ...[
-                        const SizedBox(height: 20),
-
-                        TextField(
-                          controller: debtAmountController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: customInput("¿Cuánto debes?"),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        TextField(
-                          controller: debtPaymentController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: customInput("¿Cuánto pagas?"),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        DropdownButtonFormField<String>(
-                          value: debtFrequency,
-                          dropdownColor: const Color(0xFF1C1C2E),
-                          style: const TextStyle(color: Colors.white),
-                          decoration: customInput("¿Cada cuánto pagas?"),
-
-                          items: const [
-                            DropdownMenuItem(
-                              value: "Semanal",
-                              child: Text("Semanal"),
-                            ),
-                            DropdownMenuItem(
-                              value: "Quincenal",
-                              child: Text("Quincenal"),
-                            ),
-                            DropdownMenuItem(
-                              value: "Mensual",
-                              child: Text("Mensual"),
-                            ),
-                          ],
-
-                          onChanged: (value) {
-                            setState(() {
-                              debtFrequency = value!;
-                            });
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 58,
-
-                  child: ElevatedButton(
-                    onPressed: registerUser,
-
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.cyanAccent,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
                     ),
 
-                    child: const Text(
-                      "Crear cuenta",
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
+                    if (cardType != "none") ...[
+                      const SizedBox(height: 20),
+
+                      DropdownButtonFormField<String>(
+                        value: cardType,
+                        dropdownColor: const Color(0xFF1C1C2E),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: customInput("Tipo de tarjeta"),
+
+                        items: const [
+                          DropdownMenuItem(
+                            value: "debit",
+                            child: Text("Débito"),
+                          ),
+                          DropdownMenuItem(
+                            value: "credit",
+                            child: Text("Crédito"),
+                          ),
+                          DropdownMenuItem(value: "both", child: Text("Ambas")),
+                        ],
+
+                        onChanged: (value) {
+                          setState(() {
+                            cardType = value ?? "none";
+                          });
+                        },
                       ),
-                    ),
-                  ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
+              ),
+
+              // ================= DEUDAS =================
+              sectionCard(
+                icon: Icons.account_balance_wallet_outlined,
+                title: "Deudas",
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        yesNoButton(
+                          true,
+                          hasDebt,
+                          "SI",
+                          () => setState(() => hasDebt = true),
+                        ),
+                        const SizedBox(width: 10),
+                        yesNoButton(
+                          false,
+                          hasDebt,
+                          "NO",
+                          () => setState(() => hasDebt = false),
+                        ),
+                      ],
+                    ),
+
+                    if (hasDebt) ...[
+                      const SizedBox(height: 20),
+
+                      TextField(
+                        controller: debtAmountController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: customInput("Monto de deuda"),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      TextField(
+                        controller: debtPaymentController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: customInput("Pago de deuda"),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      DropdownButtonFormField<String>(
+                        value: debtFrequency,
+                        dropdownColor: const Color(0xFF1C1C2E),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: customInput("Frecuencia de pago"),
+                        items: const [
+                          DropdownMenuItem(
+                            value: "Semanal",
+                            child: Text("Semanal"),
+                          ),
+                          DropdownMenuItem(
+                            value: "Quincenal",
+                            child: Text("Quincenal"),
+                          ),
+                          DropdownMenuItem(
+                            value: "Mensual",
+                            child: Text("Mensual"),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            debtFrequency = value ?? "Mensual";
+                          });
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 25),
+
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: registerUser,
+                  child: const Text("Crear cuenta"),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -474,6 +474,37 @@ class _PerfilPageState extends State<PerfilPage> {
             ),
 
             const SizedBox(height: 15),
+            // =========================
+            // HISTORIAL
+            // =========================
+            SizedBox(
+              width: double.infinity,
+
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(
+                    context,
+                    '/history',
+                    arguments: widget.email,
+                  );
+                },
+
+                icon: const Icon(Icons.history),
+
+                label: const Text("Historial financiero"),
+
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurpleAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 15),
 
             // =========================
             // CERRAR SESION

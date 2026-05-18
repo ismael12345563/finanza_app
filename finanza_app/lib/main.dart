@@ -12,6 +12,9 @@ import 'pages/debt_page.dart';
 import 'pages/debts_page.dart';
 import 'pages/perfil_page.dart';
 import 'pages/expenses_page.dart';
+import 'pages/history_page.dart';
+import 'pages/card_page.dart';
+//import 'pages/debit_card_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +34,13 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterPage(),
         '/account_type': (context) => const AccountTypePage(),
         '/login': (context) => const LoginPage(),
+        '/card': (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              "Usuario";
+
+          return CardPage(email: email);
+        },
 
         // HOME
         '/home': (context) {
@@ -59,6 +69,12 @@ class MyApp extends StatelessWidget {
           return DebtPage(email: email);
         },
 
+        //    '/debit_card': (context) {
+        //    final email =
+        //         ModalRoute.of(context)?.settings.arguments as String? ??
+        //        "Usuario";
+        //     return DebitCardPage(email: email);
+        //    },
         '/perfil': (context) {
           final email =
               ModalRoute.of(context)?.settings.arguments as String? ??
@@ -74,6 +90,14 @@ class MyApp extends StatelessWidget {
               "Usuario";
 
           return DebtsPage(email: email);
+        },
+
+        '/history': (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ??
+              "Usuario";
+
+          return HistoryPage(email: email);
         },
 
         '/expenses': (context) {
