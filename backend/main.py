@@ -818,30 +818,33 @@ def predict(data: PredictRequest):
     # GASTOS
     # =========================
     cur.execute("""
-        SELECT COALESCE(SUM(amount), 0) AS total_expenses
+        SELECT COALESCE(SUM(CAST(amount AS NUMERIC)), 0) AS total_expenses
         FROM expenses
         WHERE user_email=%s
     """, (data.email,))
+
     total_expenses = float(cur.fetchone()["total_expenses"] or 0)
 
     # =========================
     # DEUDA
     # =========================
     cur.execute("""
-        SELECT COALESCE(SUM(amount), 0) AS total_debt
+        SELECT COALESCE(SUM(CAST(amount AS NUMERIC)), 0) AS total_debt
         FROM debts
         WHERE user_email=%s
     """, (data.email,))
+
     debt = float(cur.fetchone()["total_debt"] or 0)
 
     # =========================
     # INGRESOS
     # =========================
     cur.execute("""
-        SELECT COALESCE(SUM(amount), 0) AS total_income
+        SELECT COALESCE(SUM(CAST(amount AS NUMERIC)), 0) AS total_income
         FROM incomes
         WHERE user_email=%s
     """, (data.email,))
+
     income_db = float(cur.fetchone()["total_income"] or 0)
 
     # =========================
@@ -862,7 +865,9 @@ def predict(data: PredictRequest):
     input_df = input_df.reindex(columns=model.feature_names_in_, fill_value=0)
 
     prediction = model.predict(input_df)[0]
+
     income = float(user["income"] or 0)
+
     # =========================
     # RISK
     # =========================
@@ -870,8 +875,10 @@ def predict(data: PredictRequest):
 
     if debt / (income_db + 1) > 0.5:
         risk_level = "high"
+
     elif total_expenses > income_db:
         risk_level = "critical"
+
     elif total_expenses / (income_db + 1) > 0.7:
         risk_level = "medium"
 
@@ -899,8 +906,10 @@ def predict(data: PredictRequest):
 
     if prediction > income:
         advice.append("⚠️ Estás gastando más de lo que ganas")
+
     elif prediction < income * 0.7:
         advice.append("✅ Buen control de gastos")
+
     else:
         advice.append("📊 Gastos normales")
 
