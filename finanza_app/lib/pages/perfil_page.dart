@@ -55,7 +55,8 @@ class _PerfilPageState extends State<PerfilPage> {
         }
 
         for (var debt in debts) {
-          debtTotal += double.tryParse(debt["amount"].toString()) ?? 0;
+          debtTotal +=
+              double.tryParse(debt["remaining_amount"].toString()) ?? 0;
         }
 
         if (!mounted) return;
@@ -505,7 +506,11 @@ class _PerfilPageState extends State<PerfilPage> {
 
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/login');
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/login',
+                          (route) => false,
+                        );
                       },
 
                       icon: const Icon(Icons.logout),

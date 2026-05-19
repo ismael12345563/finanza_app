@@ -604,7 +604,7 @@ def pay_debt(debt_id: int, data: DebtPayment):
             detail="Deuda no encontrada"
         )
 
-    total_amount = float(debt["amount"] or 0)
+    total_amount = float(debt["remaining_amount"]or 0)
     remaining = float(debt["remaining_amount"] or total_amount)
     paid = float(debt["paid_amount"] or 0)
 
@@ -774,6 +774,30 @@ def delete_expense(expense_id: int):
 
     return {"mensaje": "Gasto eliminado"}
 
+# =========================
+# UPDATE PROFILE
+# =========================
+@app.post("/update_profile")
+def update_profile(data: dict):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE users
+        SET works=%s
+        WHERE email=%s
+    """, (
+        data["works"],
+        data["email"]
+    ))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {"mensaje": "Perfil actualizado"}
 # =========================
 # ROOT
 # =========================

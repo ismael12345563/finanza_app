@@ -17,8 +17,17 @@ class _CardPageState extends State<CardPage> {
   Map card = {};
   bool loading = true;
 
-  TextEditingController amountController = TextEditingController();
-  TextEditingController descController = TextEditingController();
+  final TextEditingController limitController = TextEditingController();
+
+  final TextEditingController debtController = TextEditingController();
+
+  final TextEditingController closingDayController = TextEditingController();
+
+  final TextEditingController paymentDayController = TextEditingController();
+
+  final TextEditingController amountController = TextEditingController();
+
+  final TextEditingController descController = TextEditingController();
 
   @override
   void initState() {
@@ -26,13 +35,16 @@ class _CardPageState extends State<CardPage> {
     getCard();
   }
 
+  // =========================
+  // OBTENER TARJETA
+  // =========================
   Future<void> getCard() async {
     try {
       final res = await http.get(
         Uri.parse("$baseUrl/get_card/${widget.email}"),
       );
 
-      if (res.statusCode == 200 && res.body.isNotEmpty) {
+      if (res.statusCode == 200 && res.body.isNotEmpty && res.body != "null") {
         if (!mounted) return;
 
         setState(() {
@@ -41,24 +53,63 @@ class _CardPageState extends State<CardPage> {
         });
       } else {
         if (!mounted) return;
+
         setState(() {
           loading = false;
         });
       }
     } catch (e) {
+      debugPrint(e.toString());
+
+      if (!mounted) return;
+
       setState(() {
         loading = false;
       });
     }
   }
 
+  // =========================
+  // CREAR TARJETA
+  // =========================
+  Future<void> createCard() async {
+    try {
+      await http.post(
+        Uri.parse("$baseUrl/create_card"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": widget.email,
+          "credit_limit": double.tryParse(limitController.text) ?? 0,
+
+          "balance": double.tryParse(debtController.text) ?? 0,
+
+          "closing_day": closingDayController.text,
+          "payment_day": paymentDayController.text,
+        }),
+      );
+
+      limitController.clear();
+      debtController.clear();
+      closingDayController.clear();
+      paymentDayController.clear();
+
+      getCard();
+    } catch (e) {
+      debugPrint("Error create card: $e");
+    }
+  }
+
+  // =========================
+  // AGREGAR GASTO
+  // =========================
   Future<void> addTransaction() async {
     await http.post(
       Uri.parse("$baseUrl/card_transaction"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "email": widget.email,
-        "amount": double.parse(amountController.text),
+        "amount": double.tryParse(amountController.text) ?? 0,
+
         "description": descController.text,
       }),
     );
@@ -71,51 +122,281 @@ class _CardPageState extends State<CardPage> {
 
   @override
   Widget build(BuildContext context) {
-    double limit = (card["credit_limit"] ?? 0).toDouble();
-    double balance = (card["balance"] ?? 0).toDouble();
+    double limit = double.tryParse(card["credit_limit"].toString()) ?? 0;
+
+    double balance = double.tryParse(card["balance"].toString()) ?? 0;
+
     double available = limit - balance;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
+
       appBar: AppBar(
         title: const Text("Tarjeta de Crédito"),
         backgroundColor: Colors.transparent,
       ),
+
       body: loading
           ? const Center(child: CircularProgressIndicator())
+          // =========================
+          // FORMULARIO INICIAL
+          // =========================
+          : card.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(20),
+
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+
+                  children: [
+                    const Text(
+                      "Configurar tarjeta",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 25),
+
+                    // =========================
+                    // LIMITE
+                    // =========================
+                    Row(
+                      children: [
+                        const Text(
+                          "Límite de crédito",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(width: 5),
+
+                        Tooltip(
+                          message:
+                              "Es el máximo dinero que el banco te presta en la tarjeta.",
+
+                          child: const Icon(
+                            Icons.help_outline,
+                            color: Colors.cyanAccent,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller: limitController,
+                      keyboardType: TextInputType.number,
+
+                      style: const TextStyle(color: Colors.white),
+
+                      decoration: const InputDecoration(
+                        hintText: "Ejemplo: 15000",
+                        hintStyle: TextStyle(color: Colors.white38),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // =========================
+                    // DEUDA
+                    // =========================
+                    Row(
+                      children: [
+                        const Text(
+                          "Deuda actual",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(width: 5),
+
+                        Tooltip(
+                          message:
+                              "Es lo que actualmente debes en tu tarjeta. Si no debes nada coloca 0.",
+
+                          child: const Icon(
+                            Icons.help_outline,
+                            color: Colors.cyanAccent,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller: debtController,
+                      keyboardType: TextInputType.number,
+
+                      style: const TextStyle(color: Colors.white),
+
+                      decoration: const InputDecoration(
+                        hintText: "Ejemplo: 3500",
+                        hintStyle: TextStyle(color: Colors.white38),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // =========================
+                    // FECHA CORTE
+                    // =========================
+                    Row(
+                      children: [
+                        const Text(
+                          "Fecha de corte",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(width: 5),
+
+                        Tooltip(
+                          message:
+                              "Es el día en que el banco cierra el periodo de compras de tu tarjeta.",
+
+                          child: const Icon(
+                            Icons.help_outline,
+                            color: Colors.cyanAccent,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller: closingDayController,
+
+                      keyboardType: TextInputType.number,
+
+                      style: const TextStyle(color: Colors.white),
+
+                      decoration: const InputDecoration(
+                        hintText: "Ejemplo: 20",
+                        hintStyle: TextStyle(color: Colors.white38),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // =========================
+                    // FECHA LIMITE
+                    // =========================
+                    Row(
+                      children: [
+                        const Text(
+                          "Fecha límite de pago",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(width: 5),
+
+                        Tooltip(
+                          message:
+                              "Último día para pagar tu tarjeta y evitar intereses.",
+
+                          child: const Icon(
+                            Icons.help_outline,
+                            color: Colors.cyanAccent,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller: paymentDayController,
+
+                      keyboardType: TextInputType.number,
+
+                      style: const TextStyle(color: Colors.white),
+
+                      decoration: const InputDecoration(
+                        hintText: "Ejemplo: 5",
+                        hintStyle: TextStyle(color: Colors.white38),
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    SizedBox(
+                      width: double.infinity,
+
+                      child: ElevatedButton(
+                        onPressed: createCard,
+
+                        child: const Text("Guardar tarjeta"),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          // =========================
+          // RESUMEN TARJETA
+          // =========================
           : Padding(
               padding: const EdgeInsets.all(20),
+
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+
                 children: [
-                  // 💳 RESUMEN
                   Container(
                     padding: const EdgeInsets.all(20),
+
                     decoration: BoxDecoration(
                       color: const Color(0xFF1C1C2E),
+
                       borderRadius: BorderRadius.circular(20),
                     ),
+
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+
                       children: [
                         const Text(
                           "Resumen de tarjeta",
                           style: TextStyle(color: Colors.white, fontSize: 18),
                         ),
+
                         const SizedBox(height: 15),
 
                         Text(
                           "Límite: \$${limit.toStringAsFixed(2)}",
+
                           style: const TextStyle(color: Colors.white70),
                         ),
 
                         Text(
                           "Deuda: \$${balance.toStringAsFixed(2)}",
+
                           style: const TextStyle(color: Colors.white70),
                         ),
 
                         Text(
                           "Disponible: \$${available.toStringAsFixed(2)}",
+
                           style: const TextStyle(color: Colors.cyanAccent),
                         ),
                       ],
@@ -124,7 +405,6 @@ class _CardPageState extends State<CardPage> {
 
                   const SizedBox(height: 25),
 
-                  // 💸 NUEVO GASTO
                   const Text(
                     "Nuevo gasto",
                     style: TextStyle(color: Colors.white),
@@ -134,28 +414,40 @@ class _CardPageState extends State<CardPage> {
 
                   TextField(
                     controller: amountController,
+
                     keyboardType: TextInputType.number,
+
                     style: const TextStyle(color: Colors.white),
+
                     decoration: const InputDecoration(
                       hintText: "Monto",
                       hintStyle: TextStyle(color: Colors.white38),
                     ),
                   ),
 
+                  const SizedBox(height: 15),
+
                   TextField(
                     controller: descController,
+
                     style: const TextStyle(color: Colors.white),
+
                     decoration: const InputDecoration(
                       hintText: "Descripción",
                       hintStyle: TextStyle(color: Colors.white38),
                     ),
                   ),
 
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 20),
 
-                  ElevatedButton(
-                    onPressed: addTransaction,
-                    child: const Text("Guardar gasto"),
+                  SizedBox(
+                    width: double.infinity,
+
+                    child: ElevatedButton(
+                      onPressed: addTransaction,
+
+                      child: const Text("Guardar gasto"),
+                    ),
                   ),
                 ],
               ),
