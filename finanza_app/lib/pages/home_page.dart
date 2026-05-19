@@ -55,6 +55,7 @@ class _HomePageState extends State<HomePage> {
 
       categoryTotals[category] = (categoryTotals[category] ?? 0) + amount;
     }
+    if (!mounted) return;
 
     setState(() {});
   }
@@ -77,6 +78,7 @@ class _HomePageState extends State<HomePage> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+        if (!mounted) return;
 
         setState(() {
           hasCreditCard = data["has_credit_card"] ?? false;
@@ -105,6 +107,7 @@ class _HomePageState extends State<HomePage> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        if (!mounted) return;
 
         setState(() {
           expenses = data;
@@ -154,9 +157,8 @@ class _HomePageState extends State<HomePage> {
         final data = jsonDecode(response.body);
 
         double total = 0;
-
         for (var debt in data) {
-          total += safeDouble(debt["amount"]);
+          total += safeDouble(debt["remaining_amount"]);
         }
 
         if (!mounted) return;
@@ -185,18 +187,27 @@ class _HomePageState extends State<HomePage> {
         if (!mounted) return;
 
         setState(() {
-          predictedExpense =
-              double.tryParse(data["prediccion_gasto"].toString()) ?? 0;
+          predictedExpense = double.tryParse(data["expenses"].toString()) ?? 0;
 
-          aiTips = List<String>.from(data["consejos"] ?? []);
-          aiAlerts = List<String>.from(data["alerts"] ?? []);
-          riskLevel = data["risk_level"] ?? "low";
+          final message = data["message"]?.toString().trim() ?? "";
+
+          final extra = data["extra"]?.toString().trim() ?? "";
+
+          aiTips = message.isNotEmpty
+              ? [message]
+              : ["Sin insights disponibles"];
+
+          aiAlerts = extra.isNotEmpty ? [extra] : ["Sin alertas importantes"];
+
+          riskLevel = data["status"]?.toString() ?? "good";
 
           loadingAI = false;
         });
       }
     } catch (e) {
       debugPrint("Error IA: $e");
+
+      if (!mounted) return;
 
       setState(() {
         loadingAI = false;
@@ -625,21 +636,22 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
 
-                  const SizedBox(width: 15),
+                  if (hasCreditCard) const SizedBox(width: 15),
 
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/card',
-                          arguments: widget.email,
-                        );
-                      },
+                  if (hasCreditCard)
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/card',
+                            arguments: widget.email,
+                          );
+                        },
 
-                      child: actionButton("Tarjeta", Icons.credit_card),
+                        child: actionButton("Tarjeta", Icons.credit_card),
+                      ),
                     ),
-                  ),
                 ],
               ),
 

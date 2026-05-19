@@ -14,7 +14,6 @@ class DebtsPage extends StatefulWidget {
 class _DebtsPageState extends State<DebtsPage> {
   List debts = [];
 
-  // 🔥 URL DEL BACKEND
   final String baseUrl = "https://finanza-app.onrender.com";
 
   final amountController = TextEditingController();
@@ -23,6 +22,8 @@ class _DebtsPageState extends State<DebtsPage> {
 
   String selectedFrequency = "Mensual";
 
+  bool isDisposed = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,13 +31,15 @@ class _DebtsPageState extends State<DebtsPage> {
   }
 
   // =========================
-  // OBTENER DEUDAS
+  // GET DEBTS
   // =========================
   Future<void> getDebts() async {
     try {
       final response = await http.get(
         Uri.parse("$baseUrl/get_debts/${widget.email}"),
       );
+
+      if (!mounted || isDisposed) return;
 
       if (response.statusCode == 200) {
         setState(() {
@@ -51,9 +54,11 @@ class _DebtsPageState extends State<DebtsPage> {
   }
 
   // =========================
-  // AGREGAR DEUDA
+  // ADD DEBT
   // =========================
   Future<void> addDebt() async {
+    if (isDisposed) return;
+
     final amount = amountController.text.trim();
     final description = descriptionController.text.trim();
 
@@ -71,11 +76,13 @@ class _DebtsPageState extends State<DebtsPage> {
         }),
       );
 
+      if (!mounted || isDisposed) return;
+
       if (response.statusCode == 200) {
         amountController.clear();
         descriptionController.clear();
 
-        getDebts();
+        await getDebts();
 
         debugPrint("DEUDA AGREGADA 🔥");
       } else {
@@ -87,9 +94,11 @@ class _DebtsPageState extends State<DebtsPage> {
   }
 
   // =========================
-  // ABONAR A DEUDA
+  // PAY DEBT
   // =========================
   Future<void> payDebt(int debtId) async {
+    if (isDisposed) return;
+
     final payment = paymentController.text.trim();
 
     if (payment.isEmpty) return;
@@ -101,12 +110,16 @@ class _DebtsPageState extends State<DebtsPage> {
         body: jsonEncode({"payment_amount": payment}),
       );
 
+      if (!mounted || isDisposed) return;
+
       if (response.statusCode == 200) {
         paymentController.clear();
 
         Navigator.pop(context);
 
-        getDebts();
+        await getDebts();
+
+        if (!mounted || isDisposed) return;
 
         ScaffoldMessenger.of(
           context,
@@ -120,14 +133,16 @@ class _DebtsPageState extends State<DebtsPage> {
   }
 
   // =========================
-  // ELIMINAR DEUDA
+  // DELETE DEBT
   // =========================
   Future<void> deleteDebt(int id) async {
     try {
       final response = await http.delete(Uri.parse("$baseUrl/delete_debt/$id"));
 
+      if (!mounted || isDisposed) return;
+
       if (response.statusCode == 200) {
-        getDebts();
+        await getDebts();
 
         debugPrint("DEUDA ELIMINADA 🔥");
       } else {
@@ -139,9 +154,11 @@ class _DebtsPageState extends State<DebtsPage> {
   }
 
   // =========================
-  // MODAL ABONO
+  // PAYMENT DIALOG
   // =========================
   void showPaymentDialog(int debtId) {
+    if (isDisposed) return;
+
     paymentController.clear();
 
     showDialog(
@@ -178,6 +195,7 @@ class _DebtsPageState extends State<DebtsPage> {
               onPressed: () {
                 Navigator.pop(context);
               },
+
               child: const Text(
                 "Cancelar",
                 style: TextStyle(color: Colors.white70),
@@ -203,7 +221,7 @@ class _DebtsPageState extends State<DebtsPage> {
   }
 
   // =========================
-  // FORMATEAR FECHA
+  // FORMAT DATE
   // =========================
   String formatDate(String date) {
     try {
@@ -217,9 +235,12 @@ class _DebtsPageState extends State<DebtsPage> {
 
   @override
   void dispose() {
+    isDisposed = true;
+
     amountController.dispose();
     descriptionController.dispose();
     paymentController.dispose();
+
     super.dispose();
   }
 
@@ -230,6 +251,7 @@ class _DebtsPageState extends State<DebtsPage> {
 
       appBar: AppBar(
         title: const Text("Deudas", style: TextStyle(color: Colors.white)),
+
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -239,9 +261,6 @@ class _DebtsPageState extends State<DebtsPage> {
 
         child: Column(
           children: [
-            // =========================
-            // MONTO
-            // =========================
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
@@ -251,9 +270,6 @@ class _DebtsPageState extends State<DebtsPage> {
 
             const SizedBox(height: 10),
 
-            // =========================
-            // DESCRIPCIÓN
-            // =========================
             TextField(
               controller: descriptionController,
               style: const TextStyle(color: Colors.white),
@@ -262,9 +278,6 @@ class _DebtsPageState extends State<DebtsPage> {
 
             const SizedBox(height: 10),
 
-            // =========================
-            // FRECUENCIA
-            // =========================
             DropdownButtonFormField<String>(
               value: selectedFrequency,
 
@@ -287,6 +300,8 @@ class _DebtsPageState extends State<DebtsPage> {
               ).toList(),
 
               onChanged: (value) {
+                if (!mounted || isDisposed) return;
+
                 setState(() {
                   selectedFrequency = value!;
                 });
@@ -295,9 +310,6 @@ class _DebtsPageState extends State<DebtsPage> {
 
             const SizedBox(height: 15),
 
-            // =========================
-            // BOTÓN
-            // =========================
             SizedBox(
               width: double.infinity,
 
@@ -316,9 +328,6 @@ class _DebtsPageState extends State<DebtsPage> {
 
             const SizedBox(height: 20),
 
-            // =========================
-            // LISTA
-            // =========================
             Expanded(
               child: debts.isEmpty
                   ? const Center(
@@ -339,13 +348,6 @@ class _DebtsPageState extends State<DebtsPage> {
                             ) ??
                             0;
 
-                        final paid =
-                            double.tryParse(debt["paid_amount"].toString()) ??
-                            0;
-
-                        final original =
-                            double.tryParse(debt["amount"].toString()) ?? 0;
-
                         return Container(
                           margin: const EdgeInsets.only(bottom: 15),
                           padding: const EdgeInsets.all(18),
@@ -353,58 +355,23 @@ class _DebtsPageState extends State<DebtsPage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF1C1C2E),
                             borderRadius: BorderRadius.circular(18),
-
-                            border: Border.all(
-                              color: Colors.redAccent.withOpacity(0.2),
-                            ),
                           ),
 
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
 
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-
-                                    decoration: BoxDecoration(
-                                      color: Colors.redAccent.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-
-                                    child: const Icon(
-                                      Icons.account_balance_wallet,
-                                      color: Colors.redAccent,
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 12),
-
-                                  Expanded(
-                                    child: Text(
-                                      debt["description"] ?? "",
-
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
-
                               Text(
-                                "Restante",
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
+                                debt["description"] ?? "",
+
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
 
-                              const SizedBox(height: 5),
+                              const SizedBox(height: 10),
 
                               Text(
                                 "\$${remaining.toStringAsFixed(2)}",
@@ -416,81 +383,7 @@ class _DebtsPageState extends State<DebtsPage> {
                                 ),
                               ),
 
-                              const SizedBox(height: 10),
-
-                              Text(
-                                "Abonado: \$${paid.toStringAsFixed(2)}",
-
-                                style: const TextStyle(
-                                  color: Colors.greenAccent,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              LinearProgressIndicator(
-                                value: original > 0 ? paid / original : 0,
-
-                                minHeight: 10,
-
-                                borderRadius: BorderRadius.circular(20),
-
-                                backgroundColor: Colors.white12,
-
-                                valueColor: const AlwaysStoppedAnimation(
-                                  Colors.greenAccent,
-                                ),
-                              ),
-
                               const SizedBox(height: 15),
-
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-
-                                child: Text(
-                                  "Pago: ${debt["frequency"] ?? "Mensual"}",
-
-                                  style: const TextStyle(
-                                    color: Colors.orangeAccent,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.access_time,
-                                    color: Colors.white54,
-                                    size: 16,
-                                  ),
-
-                                  const SizedBox(width: 6),
-
-                                  Text(
-                                    formatDate(debt["created_at"] ?? ""),
-
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 18),
 
                               Row(
                                 children: [
@@ -501,36 +394,25 @@ class _DebtsPageState extends State<DebtsPage> {
                                       },
 
                                       icon: const Icon(Icons.payments),
-
                                       label: const Text("Abonar"),
 
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.greenAccent,
                                         foregroundColor: Colors.black,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 14,
-                                        ),
                                       ),
                                     ),
                                   ),
 
                                   const SizedBox(width: 10),
 
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.redAccent.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
+                                  IconButton(
+                                    onPressed: () {
+                                      deleteDebt(debt["id"]);
+                                    },
 
-                                    child: IconButton(
-                                      onPressed: () {
-                                        deleteDebt(debt["id"]);
-                                      },
-
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.redAccent,
-                                      ),
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.redAccent,
                                     ),
                                   ),
                                 ],

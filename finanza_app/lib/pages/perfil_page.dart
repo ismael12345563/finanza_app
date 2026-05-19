@@ -21,8 +21,6 @@ class _PerfilPageState extends State<PerfilPage> {
   double totalIncome = 0;
   double totalDebt = 0;
 
-  final TextEditingController notesController = TextEditingController();
-
   bool loading = false;
 
   @override
@@ -59,6 +57,8 @@ class _PerfilPageState extends State<PerfilPage> {
         for (var debt in debts) {
           debtTotal += double.tryParse(debt["amount"].toString()) ?? 0;
         }
+
+        if (!mounted) return;
 
         setState(() {
           totalIncome = incomeTotal;
@@ -112,6 +112,8 @@ class _PerfilPageState extends State<PerfilPage> {
   // GUARDAR PERFIL
   // =========================
   Future<void> saveProfile() async {
+    if (!mounted) return;
+
     setState(() => loading = true);
 
     try {
@@ -122,9 +124,10 @@ class _PerfilPageState extends State<PerfilPage> {
           "email": widget.email,
           "works": isWorking,
           "income_status": selectedStatus,
-          "notes": notesController.text.trim(),
         }),
       );
+
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(
@@ -136,10 +139,14 @@ class _PerfilPageState extends State<PerfilPage> {
         ).showSnackBar(SnackBar(content: Text("Error: ${response.body}")));
       }
     } catch (e) {
+      if (!mounted) return;
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
+
+    if (!mounted) return;
 
     setState(() => loading = false);
   }
@@ -152,14 +159,10 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   @override
-  void dispose() {
-    notesController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final balance = totalIncome - totalDebt;
+    final balance = (totalIncome - totalDebt).isNaN
+        ? 0.0
+        : totalIncome - totalDebt;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
@@ -170,372 +173,360 @@ class _PerfilPageState extends State<PerfilPage> {
         title: const Text("Perfil", style: TextStyle(color: Colors.white)),
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-
-          children: [
-            // =========================
-            // TARJETA PERFIL
-            // =========================
-            Container(
-              padding: const EdgeInsets.all(24),
-
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF23233A), Color(0xFF1C1C2E)],
-                ),
-                borderRadius: BorderRadius.circular(24),
-              ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
 
                 children: [
-                  const Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: Colors.cyanAccent,
-                        child: Icon(
-                          Icons.person,
-                          color: Colors.black,
-                          size: 30,
-                        ),
+                  // =========================
+                  // TARJETA PERFIL
+                  // =========================
+                  Container(
+                    padding: const EdgeInsets.all(24),
+
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF23233A), Color(0xFF1C1C2E)],
                       ),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
 
-                      SizedBox(width: 15),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
 
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
                           children: [
-                            Text(
-                              "Usuario Astro Fi",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                            CircleAvatar(
+                              radius: 28,
+                              backgroundColor: Colors.cyanAccent,
+                              child: Icon(
+                                Icons.person,
+                                color: Colors.black,
+                                size: 30,
                               ),
                             ),
 
-                            SizedBox(height: 5),
+                            SizedBox(width: 15),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+
+                                children: [
+                                  Text(
+                                    "Usuario Astro Fi",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+
+                                  SizedBox(height: 5),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
 
-                  const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                  Text(
-                    widget.email,
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: miniCard(
-                          "Ingresos",
-                          "\$${money(totalIncome)}",
-                          Icons.attach_money,
-                          Colors.greenAccent,
+                        Text(
+                          widget.email,
+                          style: const TextStyle(color: Colors.white70),
                         ),
-                      ),
 
-                      const SizedBox(width: 12),
+                        const SizedBox(height: 20),
 
-                      Expanded(
-                        child: miniCard(
-                          "Deudas",
-                          "\$${money(totalDebt)}",
-                          Icons.money_off,
-                          Colors.redAccent,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: miniCard(
+                                "Ingresos",
+                                "\$${money(totalIncome)}",
+                                Icons.attach_money,
+                                Colors.greenAccent,
+                              ),
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            Expanded(
+                              child: miniCard(
+                                "Deudas",
+                                "\$${money(totalDebt)}",
+                                Icons.money_off,
+                                Colors.redAccent,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
 
-            const SizedBox(height: 25),
+                  const SizedBox(height: 25),
 
-            // =========================
-            // RESUMEN
-            // =========================
-            Container(
-              padding: const EdgeInsets.all(20),
+                  // =========================
+                  // RESUMEN
+                  // =========================
+                  Container(
+                    padding: const EdgeInsets.all(20),
 
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C2E),
-                borderRadius: BorderRadius.circular(20),
-              ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C1C2E),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
 
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
 
-                children: [
-                  const Text(
-                    "Resumen financiero",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      children: [
+                        const Text(
+                          "Resumen financiero",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        infoRow("Balance actual", "\$${money(balance)}"),
+
+                        infoRow("Nivel financiero", getFinancialLevel()),
+
+                        infoRow("Estado laboral", selectedStatus),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // =========================
+                  // IA TIP
+                  // =========================
+                  Container(
+                    padding: const EdgeInsets.all(20),
+
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C1C2E),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.cyanAccent,
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        Expanded(
+                          child: Text(
+                            getFinancialTip(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // =========================
+                  // SWITCH
+                  // =========================
+                  Container(
+                    padding: const EdgeInsets.all(18),
+
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C1C2E),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                      children: [
+                        const Text(
+                          "Actualmente trabajando",
+                          style: TextStyle(color: Colors.white),
+                        ),
+
+                        Switch(
+                          value: isWorking,
+                          activeColor: Colors.cyanAccent,
+                          onChanged: (value) {
+                            setState(() {
+                              isWorking = value;
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  infoRow("Balance actual", "\$${money(balance)}"),
+                  // =========================
+                  // DROPDOWN
+                  // =========================
+                  const Text(
+                    "Situación laboral",
+                    style: TextStyle(color: Colors.white70),
+                  ),
 
-                  infoRow("Nivel financiero", getFinancialLevel()),
+                  const SizedBox(height: 10),
 
-                  infoRow("Estado laboral", selectedStatus),
-                ],
-              ),
-            ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
 
-            const SizedBox(height: 25),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C1C2E),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
 
-            // =========================
-            // IA TIP
-            // =========================
-            Container(
-              padding: const EdgeInsets.all(20),
+                    child: DropdownButton<String>(
+                      value: selectedStatus,
+                      dropdownColor: const Color(0xFF1C1C2E),
+                      isExpanded: true,
+                      underline: const SizedBox(),
 
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C2E),
-                borderRadius: BorderRadius.circular(20),
-              ),
+                      style: const TextStyle(color: Colors.white),
 
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                      items: const [
+                        DropdownMenuItem(
+                          value: "trabajando",
+                          child: Text("Trabajando"),
+                        ),
 
-                children: [
-                  const Icon(Icons.auto_awesome, color: Colors.cyanAccent),
+                        DropdownMenuItem(
+                          value: "desempleado",
+                          child: Text("Desempleado"),
+                        ),
 
-                  const SizedBox(width: 12),
+                        DropdownMenuItem(
+                          value: "estudiante",
+                          child: Text("Estudiante"),
+                        ),
 
-                  Expanded(
-                    child: Text(
-                      getFinancialTip(),
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                        DropdownMenuItem(
+                          value: "sin_ingresos",
+                          child: Text("Sin ingresos"),
+                        ),
+                      ],
+
+                      onChanged: (value) {
+                        setState(() {
+                          selectedStatus = value!;
+                        });
+                      },
                     ),
                   ),
+
+                  const SizedBox(height: 20),
+
+                  // =========================
+                  // BOTON GUARDAR
+                  // =========================
+                  SizedBox(
+                    width: double.infinity,
+
+                    child: ElevatedButton.icon(
+                      onPressed: loading ? null : saveProfile,
+
+                      icon: const Icon(Icons.save),
+
+                      label: const Text("Guardar cambios"),
+
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.cyanAccent,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // =========================
+                  // HISTORIAL
+                  // =========================
+                  SizedBox(
+                    width: double.infinity,
+
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/history',
+                          arguments: widget.email,
+                        );
+                      },
+
+                      icon: const Icon(Icons.history),
+
+                      label: const Text("Historial financiero"),
+
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurpleAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // =========================
+                  // CERRAR SESION
+                  // =========================
+                  SizedBox(
+                    width: double.infinity,
+
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pushReplacementNamed(context, '/login');
+                      },
+
+                      icon: const Icon(Icons.logout),
+
+                      label: const Text("Cerrar sesión"),
+
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
-
-            const SizedBox(height: 25),
-
-            // =========================
-            // SWITCH
-            // =========================
-            Container(
-              padding: const EdgeInsets.all(18),
-
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C2E),
-                borderRadius: BorderRadius.circular(18),
-              ),
-
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-                children: [
-                  const Text(
-                    "Actualmente trabajando",
-                    style: TextStyle(color: Colors.white),
-                  ),
-
-                  Switch(
-                    value: isWorking,
-                    activeColor: Colors.cyanAccent,
-                    onChanged: (value) {
-                      setState(() {
-                        isWorking = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // =========================
-            // DROPDOWN
-            // =========================
-            const Text(
-              "Situación laboral",
-              style: TextStyle(color: Colors.white70),
-            ),
-
-            const SizedBox(height: 10),
-
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C2E),
-                borderRadius: BorderRadius.circular(16),
-              ),
-
-              child: DropdownButton<String>(
-                value: selectedStatus,
-                dropdownColor: const Color(0xFF1C1C2E),
-                isExpanded: true,
-                underline: const SizedBox(),
-
-                style: const TextStyle(color: Colors.white),
-
-                items: const [
-                  DropdownMenuItem(
-                    value: "trabajando",
-                    child: Text("Trabajando"),
-                  ),
-                  DropdownMenuItem(
-                    value: "desempleado",
-                    child: Text("Desempleado"),
-                  ),
-                  DropdownMenuItem(
-                    value: "estudiante",
-                    child: Text("Estudiante"),
-                  ),
-                  DropdownMenuItem(
-                    value: "sin_ingresos",
-                    child: Text("Sin ingresos"),
-                  ),
-                ],
-
-                onChanged: (value) {
-                  setState(() {
-                    selectedStatus = value!;
-                  });
-                },
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // =========================
-            // NOTAS
-            // =========================
-            TextField(
-              controller: notesController,
-              maxLines: 3,
-              style: const TextStyle(color: Colors.white),
-
-              decoration: InputDecoration(
-                labelText: "Metas o notas financieras",
-                labelStyle: const TextStyle(color: Colors.white70),
-
-                filled: true,
-                fillColor: const Color(0xFF1C1C2E),
-
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            // =========================
-            // BOTON GUARDAR
-            // =========================
-            SizedBox(
-              width: double.infinity,
-
-              child: ElevatedButton.icon(
-                onPressed: loading ? null : saveProfile,
-
-                icon: const Icon(Icons.save),
-
-                label: loading
-                    ? const CircularProgressIndicator()
-                    : const Text("Guardar cambios"),
-
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.cyanAccent,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-            // =========================
-            // HISTORIAL
-            // =========================
-            SizedBox(
-              width: double.infinity,
-
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(
-                    context,
-                    '/history',
-                    arguments: widget.email,
-                  );
-                },
-
-                icon: const Icon(Icons.history),
-
-                label: const Text("Historial financiero"),
-
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurpleAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // =========================
-            // CERRAR SESION
-            // =========================
-            SizedBox(
-              width: double.infinity,
-
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/login');
-                },
-
-                icon: const Icon(Icons.logout),
-
-                label: const Text("Cerrar sesión"),
-
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
     );
   }
 
