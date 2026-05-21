@@ -21,9 +21,9 @@ class _CardPageState extends State<CardPage> {
   final TextEditingController debtController = TextEditingController();
   final TextEditingController closingDayController = TextEditingController();
   final TextEditingController paymentDayController = TextEditingController();
+  final TextEditingController lateMonthsController = TextEditingController();
 
   final TextEditingController amountController = TextEditingController();
-
   final TextEditingController descController = TextEditingController();
 
   @override
@@ -80,6 +80,7 @@ class _CardPageState extends State<CardPage> {
           "balance": double.tryParse(debtController.text) ?? 0,
           "closing_day": closingDayController.text,
           "payment_day": paymentDayController.text,
+          "late_months": int.tryParse(lateMonthsController.text) ?? 0,
         }),
       );
 
@@ -87,6 +88,7 @@ class _CardPageState extends State<CardPage> {
       debtController.clear();
       closingDayController.clear();
       paymentDayController.clear();
+      lateMonthsController.clear();
 
       getCard();
     } catch (e) {
@@ -108,6 +110,7 @@ class _CardPageState extends State<CardPage> {
           "balance": double.tryParse(debtController.text) ?? 0,
           "closing_day": closingDayController.text,
           "payment_day": paymentDayController.text,
+          "late_months": int.tryParse(lateMonthsController.text) ?? 0,
         }),
       );
 
@@ -157,9 +160,6 @@ class _CardPageState extends State<CardPage> {
 
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          // =========================
-          // FORMULARIO INICIAL
-          // =========================
           : card.isEmpty
           ? Padding(
               padding: const EdgeInsets.all(20),
@@ -222,11 +222,11 @@ class _CardPageState extends State<CardPage> {
 
                     const SizedBox(height: 20),
 
-                    // DEUDA
+                    // SALDO USADO
                     Row(
                       children: [
                         const Text(
-                          "Deuda actual",
+                          "Saldo usado",
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -236,7 +236,7 @@ class _CardPageState extends State<CardPage> {
                         const SizedBox(width: 5),
 
                         Tooltip(
-                          message: "Lo que debes actualmente en tu tarjeta.",
+                          message: "Dinero que ya utilizaste de tu tarjeta.",
 
                           child: const Icon(
                             Icons.help_outline,
@@ -292,7 +292,6 @@ class _CardPageState extends State<CardPage> {
 
                     TextField(
                       controller: closingDayController,
-
                       keyboardType: TextInputType.number,
 
                       style: const TextStyle(color: Colors.white),
@@ -334,13 +333,53 @@ class _CardPageState extends State<CardPage> {
 
                     TextField(
                       controller: paymentDayController,
-
                       keyboardType: TextInputType.number,
 
                       style: const TextStyle(color: Colors.white),
 
                       decoration: const InputDecoration(
                         hintText: "Ejemplo: 5",
+                        hintStyle: TextStyle(color: Colors.white38),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // MESES ATRASO
+                    Row(
+                      children: [
+                        const Text(
+                          "Meses de atraso",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(width: 5),
+
+                        Tooltip(
+                          message: "Cantidad de meses atrasado en pagos.",
+
+                          child: const Icon(
+                            Icons.help_outline,
+                            color: Colors.cyanAccent,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller: lateMonthsController,
+                      keyboardType: TextInputType.number,
+
+                      style: const TextStyle(color: Colors.white),
+
+                      decoration: const InputDecoration(
+                        hintText: "Ejemplo: 2",
                         hintStyle: TextStyle(color: Colors.white38),
                       ),
                     ),
@@ -359,9 +398,6 @@ class _CardPageState extends State<CardPage> {
                 ),
               ),
             )
-          // =========================
-          // RESUMEN TARJETA
-          // =========================
           : Padding(
               padding: const EdgeInsets.all(20),
 
@@ -374,7 +410,6 @@ class _CardPageState extends State<CardPage> {
 
                     decoration: BoxDecoration(
                       color: const Color(0xFF1C1C2E),
-
                       borderRadius: BorderRadius.circular(20),
                     ),
 
@@ -395,13 +430,18 @@ class _CardPageState extends State<CardPage> {
                         ),
 
                         Text(
-                          "Deuda: \$${balance.toStringAsFixed(2)}",
+                          "Saldo usado: \$${balance.toStringAsFixed(2)}",
                           style: const TextStyle(color: Colors.white70),
                         ),
 
                         Text(
                           "Disponible: \$${available.toStringAsFixed(2)}",
                           style: const TextStyle(color: Colors.cyanAccent),
+                        ),
+
+                        Text(
+                          "Meses atraso: ${card["late_months"] ?? 0}",
+                          style: const TextStyle(color: Colors.orange),
                         ),
 
                         const SizedBox(height: 20),
@@ -420,6 +460,9 @@ class _CardPageState extends State<CardPage> {
                                   .toString();
 
                               paymentDayController.text = card["payment_day"]
+                                  .toString();
+
+                              lateMonthsController.text = card["late_months"]
                                   .toString();
 
                               showDialog(
@@ -441,7 +484,6 @@ class _CardPageState extends State<CardPage> {
                                         children: [
                                           TextField(
                                             controller: limitController,
-
                                             keyboardType: TextInputType.number,
 
                                             style: const TextStyle(
@@ -457,7 +499,6 @@ class _CardPageState extends State<CardPage> {
 
                                           TextField(
                                             controller: debtController,
-
                                             keyboardType: TextInputType.number,
 
                                             style: const TextStyle(
@@ -465,7 +506,7 @@ class _CardPageState extends State<CardPage> {
                                             ),
 
                                             decoration: const InputDecoration(
-                                              hintText: "Deuda",
+                                              hintText: "Saldo usado",
                                             ),
                                           ),
 
@@ -473,7 +514,6 @@ class _CardPageState extends State<CardPage> {
 
                                           TextField(
                                             controller: closingDayController,
-
                                             keyboardType: TextInputType.number,
 
                                             style: const TextStyle(
@@ -489,7 +529,6 @@ class _CardPageState extends State<CardPage> {
 
                                           TextField(
                                             controller: paymentDayController,
-
                                             keyboardType: TextInputType.number,
 
                                             style: const TextStyle(
@@ -498,6 +537,21 @@ class _CardPageState extends State<CardPage> {
 
                                             decoration: const InputDecoration(
                                               hintText: "Fecha pago",
+                                            ),
+                                          ),
+
+                                          const SizedBox(height: 15),
+
+                                          TextField(
+                                            controller: lateMonthsController,
+                                            keyboardType: TextInputType.number,
+
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+
+                                            decoration: const InputDecoration(
+                                              hintText: "Meses atraso",
                                             ),
                                           ),
                                         ],
@@ -515,7 +569,6 @@ class _CardPageState extends State<CardPage> {
 
                                       ElevatedButton(
                                         onPressed: editCard,
-
                                         child: const Text("Guardar"),
                                       ),
                                     ],
@@ -542,7 +595,6 @@ class _CardPageState extends State<CardPage> {
 
                   TextField(
                     controller: amountController,
-
                     keyboardType: TextInputType.number,
 
                     style: const TextStyle(color: Colors.white),
@@ -573,7 +625,6 @@ class _CardPageState extends State<CardPage> {
 
                     child: ElevatedButton(
                       onPressed: addTransaction,
-
                       child: const Text("Guardar gasto"),
                     ),
                   ),

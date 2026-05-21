@@ -302,15 +302,17 @@ def create_card(data: dict):
             credit_limit,
             balance,
             closing_day,
-            payment_day
+            payment_day,
+            late_months
         )
-        VALUES (%s,%s,%s,%s,%s)
+        VALUES (%s,%s,%s,%s,%s,%s)
     """, (
         data["email"],
         data["credit_limit"],
-        0,
+        data["balance"],
         data["closing_day"],
-        data["payment_day"]
+        data["payment_day"],
+        data.get("late_months", 0)
     ))
 
     conn.commit()
@@ -334,13 +336,15 @@ def update_card(data: dict):
             credit_limit=%s,
             balance=%s,
             closing_day=%s,
-            payment_day=%s
+            payment_day=%s,
+            late_months=%s
         WHERE user_email=%s
     """, (
         data["credit_limit"],
         data["balance"],
         data["closing_day"],
         data["payment_day"],
+        data.get("late_months", 0),
         data["email"]
     ))
 
@@ -849,7 +853,6 @@ model = joblib.load("modelo.pkl")
 class PredictRequest(BaseModel):
     email: str
 
-
 @app.post("/predict")
 def predict(data: PredictRequest):
 
@@ -859,11 +862,18 @@ def predict(data: PredictRequest):
     # =========================
     # USER
     # =========================
-    cur.execute("SELECT * FROM users WHERE email=%s", (data.email,))
+    cur.execute(
+        "SELECT * FROM users WHERE email=%s",
+        (data.email,)
+    )
+
     user = cur.fetchone()
 
     if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
 
     # =========================
     # INGRESOS
@@ -873,6 +883,7 @@ def predict(data: PredictRequest):
         FROM incomes
         WHERE user_email=%s
     """, (data.email,))
+
     income_db = float(cur.fetchone()["coalesce"] or 0)
 
     # =========================
@@ -883,38 +894,43 @@ def predict(data: PredictRequest):
         FROM expenses
         WHERE user_email=%s
     """, (data.email,))
+
     expenses = float(cur.fetchone()["coalesce"] or 0)
 
     # =========================
-    # DEUDA REAL RESTANTE
+    # DEUDA
     # =========================
     cur.execute("""
         SELECT COALESCE(SUM(CAST(remaining_amount AS NUMERIC)), 0)
         FROM debts
         WHERE user_email=%s
     """, (data.email,))
+
     debt = float(cur.fetchone()["coalesce"] or 0)
 
     # =========================
     # TARJETA DE CRÉDITO
     # =========================
     cur.execute("""
-        SELECT credit_limit, balance
+        SELECT credit_limit, balance, late_months
         FROM credit_cards
         WHERE user_email=%s
     """, (data.email,))
+
     card = cur.fetchone()
 
     card_limit = 0
     card_balance = 0
+    late_months = 0
     credit_usage = 0
 
     if card:
         card_limit = float(card["credit_limit"] or 0)
         card_balance = float(card["balance"] or 0)
+        late_months = int(card["late_months"] or 0)
 
         if card_limit > 0:
-            credit_usage = card_balance / card_limit  # 0 a 1
+            credit_usage = card_balance / card_limit
 
     cur.close()
     conn.close()
@@ -925,16 +941,14 @@ def predict(data: PredictRequest):
     income = income_db if income_db > 0 else float(user["income"] or 0)
 
     # =========================
-    # RATIOS FINANCIEROS
+    # RATIOS
     # =========================
     expense_ratio = expenses / (income + 1)
     debt_ratio = debt / (income + 1)
-
-    # tarjeta pesa fuerte en riesgo
     card_ratio = credit_usage
 
     # =========================
-    # SCORE BANCO (0 - 100)
+    # SCORE
     # =========================
     score = 100
 
@@ -960,6 +974,14 @@ def predict(data: PredictRequest):
     elif card_ratio > 0.5:
         score -= 10
 
+    # atrasos
+    if late_months >= 6:
+        score -= 35
+    elif late_months >= 3:
+        score -= 20
+    elif late_months >= 1:
+        score -= 10
+
     # sin ingresos
     if income <= 0:
         score -= 20
@@ -967,7 +989,7 @@ def predict(data: PredictRequest):
     score = max(0, min(100, score))
 
     # =========================
-    # ESTADO FINAL
+    # ESTADO
     # =========================
     if score >= 75:
         status = "good"
@@ -982,19 +1004,22 @@ def predict(data: PredictRequest):
         message = "🔴 Alto riesgo financiero. Tu nivel de deuda o gasto es elevado."
 
     # =========================
-    # ALERTA EXTRA (1 sola clara)
+    # ALERTA EXTRA
     # =========================
     if card_ratio > 0.7:
         extra = "⚠️ Alto uso de tarjeta de crédito"
+
     elif debt_ratio > 0.5:
         extra = "⚠️ Deuda alta respecto a ingresos"
+
     elif expense_ratio > 0.8:
         extra = "⚠️ Gastos elevados"
+
     else:
         extra = "📊 Sin alertas críticas"
 
     # =========================
-    # RESPONSE FINAL LIMPIO
+    # RESPONSE
     # =========================
     return {
         "status": status,
@@ -1004,5 +1029,6 @@ def predict(data: PredictRequest):
         "expenses": expenses,
         "debt": debt,
         "card_usage": round(credit_usage * 100, 2),
+        "late_months": late_months,
         "extra": extra
     }
