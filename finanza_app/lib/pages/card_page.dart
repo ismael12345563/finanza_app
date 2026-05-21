@@ -18,11 +18,8 @@ class _CardPageState extends State<CardPage> {
   bool loading = true;
 
   final TextEditingController limitController = TextEditingController();
-
   final TextEditingController debtController = TextEditingController();
-
   final TextEditingController closingDayController = TextEditingController();
-
   final TextEditingController paymentDayController = TextEditingController();
 
   final TextEditingController amountController = TextEditingController();
@@ -80,9 +77,7 @@ class _CardPageState extends State<CardPage> {
         body: jsonEncode({
           "email": widget.email,
           "credit_limit": double.tryParse(limitController.text) ?? 0,
-
           "balance": double.tryParse(debtController.text) ?? 0,
-
           "closing_day": closingDayController.text,
           "payment_day": paymentDayController.text,
         }),
@@ -100,6 +95,31 @@ class _CardPageState extends State<CardPage> {
   }
 
   // =========================
+  // EDITAR TARJETA
+  // =========================
+  Future<void> editCard() async {
+    try {
+      await http.put(
+        Uri.parse("$baseUrl/update_card"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": widget.email,
+          "credit_limit": double.tryParse(limitController.text) ?? 0,
+          "balance": double.tryParse(debtController.text) ?? 0,
+          "closing_day": closingDayController.text,
+          "payment_day": paymentDayController.text,
+        }),
+      );
+
+      Navigator.pop(context);
+
+      getCard();
+    } catch (e) {
+      debugPrint("Error edit card: $e");
+    }
+  }
+
+  // =========================
   // AGREGAR GASTO
   // =========================
   Future<void> addTransaction() async {
@@ -109,7 +129,6 @@ class _CardPageState extends State<CardPage> {
       body: jsonEncode({
         "email": widget.email,
         "amount": double.tryParse(amountController.text) ?? 0,
-
         "description": descController.text,
       }),
     );
@@ -161,9 +180,7 @@ class _CardPageState extends State<CardPage> {
 
                     const SizedBox(height: 25),
 
-                    // =========================
                     // LIMITE
-                    // =========================
                     Row(
                       children: [
                         const Text(
@@ -178,7 +195,7 @@ class _CardPageState extends State<CardPage> {
 
                         Tooltip(
                           message:
-                              "Es el máximo dinero que el banco te presta en la tarjeta.",
+                              "Es el máximo dinero que el banco te presta.",
 
                           child: const Icon(
                             Icons.help_outline,
@@ -205,9 +222,7 @@ class _CardPageState extends State<CardPage> {
 
                     const SizedBox(height: 20),
 
-                    // =========================
                     // DEUDA
-                    // =========================
                     Row(
                       children: [
                         const Text(
@@ -221,8 +236,7 @@ class _CardPageState extends State<CardPage> {
                         const SizedBox(width: 5),
 
                         Tooltip(
-                          message:
-                              "Es lo que actualmente debes en tu tarjeta. Si no debes nada coloca 0.",
+                          message: "Lo que debes actualmente en tu tarjeta.",
 
                           child: const Icon(
                             Icons.help_outline,
@@ -249,9 +263,7 @@ class _CardPageState extends State<CardPage> {
 
                     const SizedBox(height: 20),
 
-                    // =========================
                     // FECHA CORTE
-                    // =========================
                     Row(
                       children: [
                         const Text(
@@ -265,8 +277,7 @@ class _CardPageState extends State<CardPage> {
                         const SizedBox(width: 5),
 
                         Tooltip(
-                          message:
-                              "Es el día en que el banco cierra el periodo de compras de tu tarjeta.",
+                          message: "Día que el banco cierra tu periodo.",
 
                           child: const Icon(
                             Icons.help_outline,
@@ -294,9 +305,7 @@ class _CardPageState extends State<CardPage> {
 
                     const SizedBox(height: 20),
 
-                    // =========================
                     // FECHA LIMITE
-                    // =========================
                     Row(
                       children: [
                         const Text(
@@ -310,8 +319,7 @@ class _CardPageState extends State<CardPage> {
                         const SizedBox(width: 5),
 
                         Tooltip(
-                          message:
-                              "Último día para pagar tu tarjeta y evitar intereses.",
+                          message: "Último día para pagar.",
 
                           child: const Icon(
                             Icons.help_outline,
@@ -344,7 +352,6 @@ class _CardPageState extends State<CardPage> {
 
                       child: ElevatedButton(
                         onPressed: createCard,
-
                         child: const Text("Guardar tarjeta"),
                       ),
                     ),
@@ -384,20 +391,141 @@ class _CardPageState extends State<CardPage> {
 
                         Text(
                           "Límite: \$${limit.toStringAsFixed(2)}",
-
                           style: const TextStyle(color: Colors.white70),
                         ),
 
                         Text(
                           "Deuda: \$${balance.toStringAsFixed(2)}",
-
                           style: const TextStyle(color: Colors.white70),
                         ),
 
                         Text(
                           "Disponible: \$${available.toStringAsFixed(2)}",
-
                           style: const TextStyle(color: Colors.cyanAccent),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        SizedBox(
+                          width: double.infinity,
+
+                          child: ElevatedButton(
+                            onPressed: () {
+                              limitController.text = card["credit_limit"]
+                                  .toString();
+
+                              debtController.text = card["balance"].toString();
+
+                              closingDayController.text = card["closing_day"]
+                                  .toString();
+
+                              paymentDayController.text = card["payment_day"]
+                                  .toString();
+
+                              showDialog(
+                                context: context,
+
+                                builder: (_) {
+                                  return AlertDialog(
+                                    backgroundColor: const Color(0xFF1C1C2E),
+
+                                    title: const Text(
+                                      "Editar tarjeta",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+
+                                    content: SingleChildScrollView(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+
+                                        children: [
+                                          TextField(
+                                            controller: limitController,
+
+                                            keyboardType: TextInputType.number,
+
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+
+                                            decoration: const InputDecoration(
+                                              hintText: "Límite",
+                                            ),
+                                          ),
+
+                                          const SizedBox(height: 15),
+
+                                          TextField(
+                                            controller: debtController,
+
+                                            keyboardType: TextInputType.number,
+
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+
+                                            decoration: const InputDecoration(
+                                              hintText: "Deuda",
+                                            ),
+                                          ),
+
+                                          const SizedBox(height: 15),
+
+                                          TextField(
+                                            controller: closingDayController,
+
+                                            keyboardType: TextInputType.number,
+
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+
+                                            decoration: const InputDecoration(
+                                              hintText: "Fecha corte",
+                                            ),
+                                          ),
+
+                                          const SizedBox(height: 15),
+
+                                          TextField(
+                                            controller: paymentDayController,
+
+                                            keyboardType: TextInputType.number,
+
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+
+                                            decoration: const InputDecoration(
+                                              hintText: "Fecha pago",
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                        },
+
+                                        child: const Text("Cancelar"),
+                                      ),
+
+                                      ElevatedButton(
+                                        onPressed: editCard,
+
+                                        child: const Text("Guardar"),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+
+                            child: const Text("Editar tarjeta"),
+                          ),
                         ),
                       ],
                     ),

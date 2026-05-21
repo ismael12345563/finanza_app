@@ -319,6 +319,38 @@ def create_card(data: dict):
 
     return {"mensaje": "Tarjeta creada"}
 
+# =========================
+# UPDATE CARD
+# =========================
+@app.put("/update_card")
+def update_card(data: dict):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE credit_cards
+        SET
+            credit_limit=%s,
+            balance=%s,
+            closing_day=%s,
+            payment_day=%s
+        WHERE user_email=%s
+    """, (
+        data["credit_limit"],
+        data["balance"],
+        data["closing_day"],
+        data["payment_day"],
+        data["email"]
+    ))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {"mensaje": "Tarjeta actualizada"}
+
 
 @app.post("/card_transaction")
 def card_transaction(data: dict):
@@ -604,7 +636,7 @@ def pay_debt(debt_id: int, data: DebtPayment):
             detail="Deuda no encontrada"
         )
 
-    total_amount = float(debt["remaining_amount"]or 0)
+    total_amount = float(debt["amount"] or 0)
     remaining = float(debt["remaining_amount"] or total_amount)
     paid = float(debt["paid_amount"] or 0)
 
