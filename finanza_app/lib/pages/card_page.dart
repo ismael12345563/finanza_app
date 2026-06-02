@@ -11,7 +11,8 @@ class CardPage extends StatefulWidget {
   State<CardPage> createState() => _CardPageState();
 }
 
-class _CardPageState extends State<CardPage> {
+class _CardPageState extends State<CardPage>
+    with SingleTickerProviderStateMixin {
   final String baseUrl = "https://finanza-app.onrender.com";
 
   Map card = {};
@@ -26,10 +27,132 @@ class _CardPageState extends State<CardPage> {
   final TextEditingController amountController = TextEditingController();
   final TextEditingController descController = TextEditingController();
 
+  late AnimationController backgroundController;
+  late Animation<double> backgroundAnimation;
+
   @override
   void initState() {
     super.initState();
+
+    backgroundController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat(reverse: true);
+
+    backgroundAnimation = CurvedAnimation(
+      parent: backgroundController,
+      curve: Curves.easeInOut,
+    );
+
     getCard();
+  }
+
+  @override
+  void dispose() {
+    backgroundController.dispose();
+    limitController.dispose();
+    debtController.dispose();
+    closingDayController.dispose();
+    paymentDayController.dispose();
+    lateMonthsController.dispose();
+    amountController.dispose();
+    descController.dispose();
+    super.dispose();
+  }
+
+  Widget animatedBackground() {
+    return AnimatedBuilder(
+      animation: backgroundAnimation,
+      builder: (context, child) {
+        final value = backgroundAnimation.value;
+
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF020611),
+                Color.lerp(
+                  const Color(0xFF081328),
+                  const Color(0xFF190A2E),
+                  value,
+                )!,
+                const Color(0xFF050510),
+              ],
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment(
+                        -0.7 + (value * 0.5),
+                        -0.9 + (value * 0.25),
+                      ),
+                      radius: 1.05,
+                      colors: [
+                        Colors.cyanAccent.withValues(alpha: 0.20),
+                        Colors.blueAccent.withValues(alpha: 0.08),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment(
+                        0.75 - (value * 0.35),
+                        -0.15 + (value * 0.25),
+                      ),
+                      radius: 1.2,
+                      colors: [
+                        Colors.purpleAccent.withValues(alpha: 0.18),
+                        Colors.deepPurple.withValues(alpha: 0.10),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              ...List.generate(65, (index) {
+                final x = ((index * 37) % 100) / 50 - 1;
+                final y = ((index * 61) % 100) / 50 - 1;
+                final drift = ((index % 5) - 2) * 0.012 * value;
+                final size = 1.2 + (index % 4) * 0.55;
+                final opacity = 0.16 + ((index % 6) * 0.07);
+
+                return Align(
+                  alignment: Alignment(x + drift, y - drift),
+                  child: Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: opacity),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.cyanAccent.withValues(
+                            alpha: opacity * 0.7,
+                          ),
+                          blurRadius: 6 + (index % 5).toDouble(),
+                          spreadRadius: 0.4,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // =========================
@@ -144,493 +267,420 @@ class _CardPageState extends State<CardPage> {
 
   @override
   Widget build(BuildContext context) {
-    double limit = double.tryParse(card["credit_limit"].toString()) ?? 0;
-
-    double balance = double.tryParse(card["balance"].toString()) ?? 0;
-
+    double limit =
+        double.tryParse(card["credit_limit"]?.toString() ?? "0") ?? 0;
+    double balance = double.tryParse(card["balance"]?.toString() ?? "0") ?? 0;
     double available = limit - balance;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       backgroundColor: const Color(0xFF0F0F1A),
-
       appBar: AppBar(
-        title: const Text("Tarjeta de Crédito"),
+        title: const Text(
+          "Tarjeta de Crédito",
+          style: TextStyle(color: Colors.white),
+        ),
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
-
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : card.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(20),
-
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-
-                  children: [
-                    const Text(
-                      "Configurar tarjeta",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 25),
-
-                    // LIMITE
-                    Row(
-                      children: [
-                        const Text(
-                          "Límite de crédito",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(width: 5),
-
-                        Tooltip(
-                          message:
-                              "Es el máximo dinero que el banco te presta.",
-
-                          child: const Icon(
-                            Icons.help_outline,
-                            color: Colors.cyanAccent,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: limitController,
-                      keyboardType: TextInputType.number,
-
-                      style: const TextStyle(color: Colors.white),
-
-                      decoration: const InputDecoration(
-                        hintText: "Ejemplo: 15000",
-                        hintStyle: TextStyle(color: Colors.white38),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // SALDO USADO
-                    Row(
-                      children: [
-                        const Text(
-                          "Saldo usado",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(width: 5),
-
-                        Tooltip(
-                          message: "Dinero que ya utilizaste de tu tarjeta.",
-
-                          child: const Icon(
-                            Icons.help_outline,
-                            color: Colors.cyanAccent,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: debtController,
-                      keyboardType: TextInputType.number,
-
-                      style: const TextStyle(color: Colors.white),
-
-                      decoration: const InputDecoration(
-                        hintText: "Ejemplo: 3500",
-                        hintStyle: TextStyle(color: Colors.white38),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // FECHA CORTE
-                    Row(
-                      children: [
-                        const Text(
-                          "Fecha de corte",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(width: 5),
-
-                        Tooltip(
-                          message: "Día que el banco cierra tu periodo.",
-
-                          child: const Icon(
-                            Icons.help_outline,
-                            color: Colors.cyanAccent,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: closingDayController,
-                      keyboardType: TextInputType.number,
-
-                      style: const TextStyle(color: Colors.white),
-
-                      decoration: const InputDecoration(
-                        hintText: "Ejemplo: 20",
-                        hintStyle: TextStyle(color: Colors.white38),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // FECHA LIMITE
-                    Row(
-                      children: [
-                        const Text(
-                          "Fecha límite de pago",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(width: 5),
-
-                        Tooltip(
-                          message: "Último día para pagar.",
-
-                          child: const Icon(
-                            Icons.help_outline,
-                            color: Colors.cyanAccent,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: paymentDayController,
-                      keyboardType: TextInputType.number,
-
-                      style: const TextStyle(color: Colors.white),
-
-                      decoration: const InputDecoration(
-                        hintText: "Ejemplo: 5",
-                        hintStyle: TextStyle(color: Colors.white38),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // MESES ATRASO
-                    Row(
-                      children: [
-                        const Text(
-                          "Meses de atraso",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(width: 5),
-
-                        Tooltip(
-                          message: "Cantidad de meses atrasado en pagos.",
-
-                          child: const Icon(
-                            Icons.help_outline,
-                            color: Colors.cyanAccent,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: lateMonthsController,
-                      keyboardType: TextInputType.number,
-
-                      style: const TextStyle(color: Colors.white),
-
-                      decoration: const InputDecoration(
-                        hintText: "Ejemplo: 2",
-                        hintStyle: TextStyle(color: Colors.white38),
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    SizedBox(
-                      width: double.infinity,
-
-                      child: ElevatedButton(
-                        onPressed: createCard,
-                        child: const Text("Guardar tarjeta"),
-                      ),
-                    ),
-                  ],
+      body: Stack(
+        children: [
+          Positioned.fill(child: animatedBackground()),
+          loading
+              ? const Center(child: CircularProgressIndicator())
+              : SafeArea(
+                  child: card.isEmpty
+                      ? buildCreateCardView()
+                      : buildCardView(limit, balance, available),
                 ),
-              ),
-            )
-          : Padding(
-              padding: const EdgeInsets.all(20),
+        ],
+      ),
+    );
+  }
 
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1C1C2E),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-
-                      children: [
-                        const Text(
-                          "Resumen de tarjeta",
-                          style: TextStyle(color: Colors.white, fontSize: 18),
-                        ),
-
-                        const SizedBox(height: 15),
-
-                        Text(
-                          "Límite: \$${limit.toStringAsFixed(2)}",
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-
-                        Text(
-                          "Saldo usado: \$${balance.toStringAsFixed(2)}",
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-
-                        Text(
-                          "Disponible: \$${available.toStringAsFixed(2)}",
-                          style: const TextStyle(color: Colors.cyanAccent),
-                        ),
-
-                        Text(
-                          "Meses atraso: ${card["late_months"] ?? 0}",
-                          style: const TextStyle(color: Colors.orange),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        SizedBox(
-                          width: double.infinity,
-
-                          child: ElevatedButton(
-                            onPressed: () {
-                              limitController.text = card["credit_limit"]
-                                  .toString();
-
-                              debtController.text = card["balance"].toString();
-
-                              closingDayController.text = card["closing_day"]
-                                  .toString();
-
-                              paymentDayController.text = card["payment_day"]
-                                  .toString();
-
-                              lateMonthsController.text = card["late_months"]
-                                  .toString();
-
-                              showDialog(
-                                context: context,
-
-                                builder: (_) {
-                                  return AlertDialog(
-                                    backgroundColor: const Color(0xFF1C1C2E),
-
-                                    title: const Text(
-                                      "Editar tarjeta",
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-
-                                    content: SingleChildScrollView(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-
-                                        children: [
-                                          TextField(
-                                            controller: limitController,
-                                            keyboardType: TextInputType.number,
-
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-
-                                            decoration: const InputDecoration(
-                                              hintText: "Límite",
-                                            ),
-                                          ),
-
-                                          const SizedBox(height: 15),
-
-                                          TextField(
-                                            controller: debtController,
-                                            keyboardType: TextInputType.number,
-
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-
-                                            decoration: const InputDecoration(
-                                              hintText: "Saldo usado",
-                                            ),
-                                          ),
-
-                                          const SizedBox(height: 15),
-
-                                          TextField(
-                                            controller: closingDayController,
-                                            keyboardType: TextInputType.number,
-
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-
-                                            decoration: const InputDecoration(
-                                              hintText: "Fecha corte",
-                                            ),
-                                          ),
-
-                                          const SizedBox(height: 15),
-
-                                          TextField(
-                                            controller: paymentDayController,
-                                            keyboardType: TextInputType.number,
-
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-
-                                            decoration: const InputDecoration(
-                                              hintText: "Fecha pago",
-                                            ),
-                                          ),
-
-                                          const SizedBox(height: 15),
-
-                                          TextField(
-                                            controller: lateMonthsController,
-                                            keyboardType: TextInputType.number,
-
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-
-                                            decoration: const InputDecoration(
-                                              hintText: "Meses atraso",
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                        },
-
-                                        child: const Text("Cancelar"),
-                                      ),
-
-                                      ElevatedButton(
-                                        onPressed: editCard,
-                                        child: const Text("Guardar"),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
-
-                            child: const Text("Editar tarjeta"),
-                          ),
-                        ),
-                      ],
-                    ),
+  Widget buildCreateCardView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 55),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          glowPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Configurar tarjeta",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
                   ),
-
-                  const SizedBox(height: 25),
-
-                  const Text(
-                    "Nuevo gasto",
-                    style: TextStyle(color: Colors.white),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  TextField(
-                    controller: amountController,
-                    keyboardType: TextInputType.number,
-
-                    style: const TextStyle(color: Colors.white),
-
-                    decoration: const InputDecoration(
-                      hintText: "Monto",
-                      hintStyle: TextStyle(color: Colors.white38),
-                    ),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  TextField(
-                    controller: descController,
-
-                    style: const TextStyle(color: Colors.white),
-
-                    decoration: const InputDecoration(
-                      hintText: "Descripción",
-                      hintStyle: TextStyle(color: Colors.white38),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  SizedBox(
+                ),
+                const SizedBox(height: 24),
+                labeledField(
+                  label: "Límite de crédito",
+                  tooltip: "Es el máximo dinero que el banco te presta.",
+                  controller: limitController,
+                  hint: "Ejemplo: 15000",
+                ),
+                labeledField(
+                  label: "Saldo usado",
+                  tooltip: "Dinero que ya utilizaste de tu tarjeta.",
+                  controller: debtController,
+                  hint: "Ejemplo: 3500",
+                ),
+                labeledField(
+                  label: "Fecha de corte",
+                  tooltip: "Día que el banco cierra tu periodo.",
+                  controller: closingDayController,
+                  hint: "Ejemplo: 20",
+                ),
+                labeledField(
+                  label: "Fecha límite de pago",
+                  tooltip: "Último día para pagar.",
+                  controller: paymentDayController,
+                  hint: "Ejemplo: 5",
+                ),
+                labeledField(
+                  label: "Meses de atraso",
+                  tooltip: "Cantidad de meses atrasado en pagos.",
+                  controller: lateMonthsController,
+                  hint: "Ejemplo: 2",
+                  bottomSpacing: 30,
+                ),
+                glowButtonWrapper(
+                  color: Colors.cyanAccent,
+                  child: SizedBox(
                     width: double.infinity,
-
                     child: ElevatedButton(
-                      onPressed: addTransaction,
-                      child: const Text("Guardar gasto"),
+                      onPressed: createCard,
+                      style: glowButtonStyle(
+                        backgroundColor: Colors.cyanAccent,
+                        foregroundColor: Colors.black,
+                        glowColor: Colors.cyanAccent,
+                      ),
+                      child: const Text("Guardar tarjeta"),
                     ),
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildCardView(double limit, double balance, double available) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 55),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          glowPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Resumen de tarjeta",
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
+                const SizedBox(height: 15),
+                Text(
+                  "Límite: \$${limit.toStringAsFixed(2)}",
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                Text(
+                  "Saldo usado: \$${balance.toStringAsFixed(2)}",
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                Text(
+                  "Disponible: \$${available.toStringAsFixed(2)}",
+                  style: TextStyle(
+                    color: Colors.cyanAccent,
+                    shadows: [
+                      Shadow(
+                        color: Colors.cyanAccent.withValues(alpha: 0.55),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  "Meses atraso: ${card["late_months"] ?? 0}",
+                  style: const TextStyle(color: Colors.orange),
+                ),
+                const SizedBox(height: 20),
+                glowButtonWrapper(
+                  color: Colors.purpleAccent,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: showEditDialog,
+                      style: glowButtonStyle(
+                        backgroundColor: Colors.deepPurpleAccent,
+                        foregroundColor: Colors.white,
+                        glowColor: Colors.purpleAccent,
+                      ),
+                      child: const Text("Editar tarjeta"),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 25),
+          const Text("Nuevo gasto", style: TextStyle(color: Colors.white)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: amountController,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(color: Colors.white),
+            decoration: inputDecoration("Monto"),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: descController,
+            style: const TextStyle(color: Colors.white),
+            decoration: inputDecoration("Descripción"),
+          ),
+          const SizedBox(height: 20),
+          glowButtonWrapper(
+            color: Colors.cyanAccent,
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: addTransaction,
+                style: glowButtonStyle(
+                  backgroundColor: Colors.cyanAccent,
+                  foregroundColor: Colors.black,
+                  glowColor: Colors.cyanAccent,
+                ),
+                child: const Text("Guardar gasto"),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void showEditDialog() {
+    limitController.text = card["credit_limit"].toString();
+    debtController.text = card["balance"].toString();
+    closingDayController.text = card["closing_day"].toString();
+    paymentDayController.text = card["payment_day"].toString();
+    lateMonthsController.text = card["late_months"].toString();
+
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1C1C2E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.cyanAccent.withValues(alpha: 0.35)),
+          ),
+          title: const Text(
+            "Editar tarjeta",
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: limitController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: inputDecoration("Límite"),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: debtController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: inputDecoration("Saldo usado"),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: closingDayController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: inputDecoration("Fecha corte"),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: paymentDayController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: inputDecoration("Fecha pago"),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: lateMonthsController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: inputDecoration("Meses atraso"),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text(
+                "Cancelar",
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: editCard,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.cyanAccent,
+                foregroundColor: Colors.black,
+                elevation: 12,
+                shadowColor: Colors.cyanAccent.withValues(alpha: 0.6),
+              ),
+              child: const Text("Guardar"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget labeledField({
+    required String label,
+    required String tooltip,
+    required TextEditingController controller,
+    required String hint,
+    double bottomSpacing = 20,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Tooltip(
+              message: tooltip,
+              child: const Icon(
+                Icons.help_outline,
+                color: Colors.cyanAccent,
+                size: 18,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: inputDecoration(hint),
+        ),
+        SizedBox(height: bottomSpacing),
+      ],
+    );
+  }
+
+  Widget glowPanel({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C2E).withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.cyanAccent.withValues(alpha: 0.22),
+            blurRadius: 30,
+            spreadRadius: 1,
+          ),
+          BoxShadow(
+            color: Colors.purpleAccent.withValues(alpha: 0.10),
+            blurRadius: 42,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  InputDecoration inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Colors.white38),
+      filled: true,
+      fillColor: const Color(0xFF1C1C2E).withValues(alpha: 0.92),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: Colors.cyanAccent.withValues(alpha: 0.28),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Colors.cyanAccent),
+      ),
+    );
+  }
+
+  static Widget glowButtonWrapper({
+    required Color color,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.55),
+            blurRadius: 30,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: color.withValues(alpha: 0.28),
+            blurRadius: 52,
+            spreadRadius: 6,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  static ButtonStyle glowButtonStyle({
+    required Color backgroundColor,
+    required Color foregroundColor,
+    required Color glowColor,
+  }) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      padding: const EdgeInsets.symmetric(vertical: 17),
+      elevation: 18,
+      shadowColor: glowColor.withValues(alpha: 0.90),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+      ),
     );
   }
 }

@@ -14,6 +14,7 @@ import 'pages/perfil_page.dart';
 import 'pages/expenses_page.dart';
 import 'pages/history_page.dart';
 import 'pages/card_page.dart';
+import 'pages/forgot_password_page.dart';
 //import 'pages/debit_card_page.dart';
 
 void main() {
@@ -82,6 +83,8 @@ class MyApp extends StatelessWidget {
 
           return PerfilPage(email: email);
         },
+
+        '/forgot_password': (context) => const ForgotPasswordPage(),
 
         // LISTA DE DEUDAS (ver deudas)
         '/debts': (context) {
