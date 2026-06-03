@@ -130,6 +130,13 @@ def ensure_password_reset_table(cur):
     """)
 
 
+def ensure_profile_columns(cur):
+    cur.execute("""
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS income_status TEXT DEFAULT 'trabajando'
+    """)
+
+
 def send_reset_email(email: str, token: str):
     smtp_host = os.getenv("SMTP_HOST")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
@@ -446,9 +453,11 @@ def get_user(email: str):
 
     conn = get_connection()
     cur = conn.cursor()
+    ensure_profile_columns(cur)
+    conn.commit()
 
     cur.execute("""
-        SELECT email, has_credit_card
+        SELECT email, has_credit_card, works, income_status
         FROM users
         WHERE email=%s
     """, (email,))
@@ -466,7 +475,9 @@ def get_user(email: str):
 
     return {
         "email": row["email"],
-        "has_credit_card": row["has_credit_card"] or False
+        "has_credit_card": row["has_credit_card"] or False,
+        "works": row["works"] if row["works"] is not None else False,
+        "income_status": row["income_status"] or "trabajando"
     }
 
 @app.get("/get_card/{email}")
@@ -1020,13 +1031,15 @@ def update_profile(data: dict):
 
     conn = get_connection()
     cur = conn.cursor()
+    ensure_profile_columns(cur)
 
     cur.execute("""
         UPDATE users
-        SET works=%s
+        SET works=%s, income_status=%s
         WHERE email=%s
     """, (
         data["works"],
+        data.get("income_status", "trabajando"),
         data["email"]
     ))
 
@@ -1041,7 +1054,7 @@ def update_profile(data: dict):
 # =========================
 @app.get("/")
 def root():
-    return {"mensaje": "AstroFi API OK 🚀"}
+    return {"mensaje": "AstroFi API OK"}
 
 # =========================
 # IA MODEL
@@ -1060,6 +1073,8 @@ def predict(data: PredictRequest):
 
     conn = get_connection()
     cur = conn.cursor()
+    ensure_profile_columns(cur)
+    conn.commit()
 
     # =========================
     # USER
@@ -1140,7 +1155,14 @@ def predict(data: PredictRequest):
     # =========================
     # INGRESO FINAL
     # =========================
+    income_status = user.get("income_status") or "trabajando"
+    works = user.get("works")
+    has_active_work = bool(works) and income_status not in ["desempleado", "sin_ingresos"]
+
     income = income_db if income_db > 0 else float(user["income"] or 0)
+
+    if not has_active_work and income_db <= 0:
+        income = 0
 
     # =========================
     # RATIOS
@@ -1188,6 +1210,9 @@ def predict(data: PredictRequest):
     if income <= 0:
         score -= 20
 
+    if not has_active_work:
+        score -= 10
+
     score = max(0, min(100, score))
 
     # =========================
@@ -1195,30 +1220,33 @@ def predict(data: PredictRequest):
     # =========================
     if score >= 75:
         status = "good"
-        message = "🟢 Finanzas saludables. Buen control de ingresos y gastos."
+        message = "Finanzas saludables. Buen control de ingresos y gastos."
 
     elif score >= 45:
         status = "warning"
-        message = "🟡 Precaución financiera. Ajusta gastos o reduce deudas."
+        message = "Precaución financiera. Ajusta gastos o reduce deudas."
 
     else:
         status = "danger"
-        message = "🔴 Alto riesgo financiero. Tu nivel de deuda o gasto es elevado."
+        message = "Alto riesgo financiero. Tu nivel de deuda o gasto es elevado."
 
     # =========================
     # ALERTA EXTRA
     # =========================
     if card_ratio > 0.7:
-        extra = "⚠️ Alto uso de tarjeta de crédito"
+        extra = "Alto uso de tarjeta de crédito"
 
     elif debt_ratio > 0.5:
-        extra = "⚠️ Deuda alta respecto a ingresos"
+        extra = "Deuda alta respecto a ingresos"
 
     elif expense_ratio > 0.8:
-        extra = "⚠️ Gastos elevados"
+        extra = "Gastos elevados"
+
+    elif not has_active_work:
+        extra = "Sin ingreso laboral activo"
 
     else:
-        extra = "📊 Sin alertas críticas"
+        extra = "Sin alertas críticas"
 
     # =========================
     # RESPONSE
@@ -1232,5 +1260,7 @@ def predict(data: PredictRequest):
         "debt": debt,
         "card_usage": round(credit_usage * 100, 2),
         "late_months": late_months,
+        "works": has_active_work,
+        "income_status": income_status,
         "extra": extra
     }

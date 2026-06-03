@@ -40,6 +40,7 @@ class _PerfilPageState extends State<PerfilPage>
       curve: Curves.easeInOut,
     );
 
+    loadProfileData();
     loadFinancialData();
   }
 
@@ -144,6 +145,27 @@ class _PerfilPageState extends State<PerfilPage>
     );
   }
 
+  Future<void> loadProfileData() async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/get_user/${widget.email}"),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (!mounted) return;
+
+        setState(() {
+          isWorking = data["works"] ?? true;
+          selectedStatus = data["income_status"] ?? "trabajando";
+        });
+      }
+    } catch (e) {
+      debugPrint("Error profile: $e");
+    }
+  }
+
   Future<void> loadFinancialData() async {
     try {
       final incomesResponse = await http.get(
@@ -197,7 +219,7 @@ class _PerfilPageState extends State<PerfilPage>
     }
 
     if (totalIncome > 20000) {
-      return "Buen trabajo 🔥 considera empezar un fondo de inversión.";
+      return "Buen trabajo, considera empezar un fondo de inversión.";
     }
 
     return "Mantén un control constante de tus gastos e ingresos.";
@@ -224,7 +246,7 @@ class _PerfilPageState extends State<PerfilPage>
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text("Perfil actualizado 🔥")));
+        ).showSnackBar(const SnackBar(content: Text("Perfil actualizado")));
       } else {
         ScaffoldMessenger.of(
           context,

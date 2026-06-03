@@ -181,9 +181,26 @@ class _ExpensesPageState extends State<ExpensesPage>
   // AGREGAR GASTO
   // =========================
   Future<void> addExpense() async {
-    if (amountController.text.isEmpty || descriptionController.text.isEmpty) {
+    final amountText = amountController.text.trim();
+    final description = descriptionController.text.trim();
+
+    if (amountText.isEmpty || description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Completa monto y descripción")),
+      );
       return;
     }
+
+    final amount = double.tryParse(amountText);
+
+    if (amount == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Ingresa un monto válido")));
+      return;
+    }
+
+    if (!mounted) return;
 
     setState(() {
       loading = true;
@@ -195,25 +212,45 @@ class _ExpensesPageState extends State<ExpensesPage>
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_email": widget.email,
-          "amount": double.parse(amountController.text),
-          "description": descriptionController.text,
+          "amount": amountText,
+          "description": description,
           "category": selectedCategory,
         }),
       );
+
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         amountController.clear();
         descriptionController.clear();
 
         await getExpenses();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Gasto agregado")));
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: ${response.body}")));
       }
     } catch (e) {
       debugPrint("Error add expense: $e");
-    }
 
-    setState(() {
-      loading = false;
-    });
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error de conexión: $e")));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
+    }
   }
 
   // =========================
