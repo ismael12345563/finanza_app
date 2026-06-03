@@ -12,9 +12,13 @@ class ForgotPasswordPage extends StatefulWidget {
 class _ForgotPasswordPageState extends State<ForgotPasswordPage>
     with SingleTickerProviderStateMixin {
   final emailController = TextEditingController();
+  final tokenController = TextEditingController();
+  final passwordController = TextEditingController();
   final String baseUrl = "https://finanza-app.onrender.com";
 
   bool isLoading = false;
+  bool codeSent = false;
+  bool obscurePassword = true;
 
   late AnimationController animationController;
   late Animation<double> backgroundAnimation;
@@ -52,14 +56,75 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
         body: jsonEncode({"email": email}),
       );
 
+      if (!mounted) return;
+
       setState(() => isLoading = false);
 
       if (response.statusCode == 200) {
+        setState(() => codeSent = true);
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Revisa tu correo para recuperar tu contraseña 📩"),
-          ),
+          const SnackBar(content: Text("Código enviado a tu correo")),
         );
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: ${response.body}")));
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => isLoading = false);
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error de conexión: $e")));
+    }
+  }
+
+  Future<void> resetPassword() async {
+    final email = emailController.text.trim();
+    final token = tokenController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (token.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Completa código y nueva contraseña")),
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("La contraseña debe tener al menos 6 caracteres"),
+        ),
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/reset-password"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": email,
+          "token": token,
+          "new_password": password,
+        }),
+      );
+
+      if (!mounted) return;
+
+      setState(() => isLoading = false);
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Contraseña actualizada")));
+
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(
@@ -67,6 +132,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
         ).showSnackBar(SnackBar(content: Text("Error: ${response.body}")));
       }
     } catch (e) {
+      if (!mounted) return;
+
       setState(() => isLoading = false);
 
       ScaffoldMessenger.of(
@@ -79,6 +146,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   void dispose() {
     animationController.dispose();
     emailController.dispose();
+    tokenController.dispose();
+    passwordController.dispose();
     super.dispose();
   }
 
@@ -90,17 +159,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
         final value = backgroundAnimation.value;
 
         return Scaffold(
+          extendBodyBehindAppBar: true,
           backgroundColor: const Color(0xFF0F0F1A),
           appBar: AppBar(
-            title: const Text("Recuperar contraseña"),
+            title: const Text(
+              "Recuperar contraseña",
+              style: TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
             elevation: 0,
             iconTheme: const IconThemeData(color: Colors.white),
           ),
-
           body: Stack(
             children: [
-              // 🌌 BACKGROUND ANIMADO
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
@@ -108,81 +180,140 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                       center: Alignment(-0.6 + value * 1.2, -0.8 + value * 0.5),
                       radius: 1.2,
                       colors: [
-                        Colors.cyanAccent.withOpacity(0.18),
-                        Colors.purpleAccent.withOpacity(0.10),
+                        Colors.cyanAccent.withValues(alpha: 0.18),
+                        Colors.purpleAccent.withValues(alpha: 0.10),
                         const Color(0xFF0F0F1A),
                       ],
                     ),
                   ),
                 ),
               ),
-
-              // 📩 CONTENIDO
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.lock_reset,
-                        size: 80,
-                        color: Colors.cyanAccent,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      const Text(
-                        "Recupera tu contraseña",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      const Text(
-                        "Ingresa tu correo y te enviaremos instrucciones",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      TextField(
-                        controller: emailController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          labelText: "Correo",
-                          labelStyle: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: isLoading ? null : sendReset,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.cyanAccent,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
+              SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: glowPanel(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.lock_reset,
+                            size: 72,
+                            color: Colors.cyanAccent,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            codeSent
+                                ? "Ingresa el código"
+                                : "Recupera tu contraseña",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          child: isLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.black,
-                                  strokeWidth: 2,
-                                )
-                              : const Text("Enviar"),
-                        ),
+                          const SizedBox(height: 10),
+                          Text(
+                            codeSent
+                                ? "Revisa tu correo y escribe el código recibido"
+                                : "Ingresa tu correo y te enviaremos un código",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          const SizedBox(height: 30),
+                          TextField(
+                            controller: emailController,
+                            enabled: !codeSent && !isLoading,
+                            keyboardType: TextInputType.emailAddress,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: inputDecoration("Correo"),
+                          ),
+                          if (codeSent) ...[
+                            const SizedBox(height: 15),
+                            TextField(
+                              controller: tokenController,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: inputDecoration("Código"),
+                            ),
+                            const SizedBox(height: 15),
+                            TextField(
+                              controller: passwordController,
+                              obscureText: obscurePassword,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: inputDecoration("Nueva contraseña")
+                                  .copyWith(
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        obscurePassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                        color: Colors.white70,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          obscurePassword = !obscurePassword;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                            ),
+                          ],
+                          const SizedBox(height: 30),
+                          glowButtonWrapper(
+                            color: Colors.cyanAccent,
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : codeSent
+                                    ? resetPassword
+                                    : sendReset,
+                                style: glowButtonStyle(
+                                  backgroundColor: Colors.cyanAccent,
+                                  foregroundColor: Colors.black,
+                                  glowColor: Colors.cyanAccent,
+                                ),
+                                child: isLoading
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.black,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(
+                                        codeSent
+                                            ? "Cambiar contraseña"
+                                            : "Enviar código",
+                                      ),
+                              ),
+                            ),
+                          ),
+                          if (codeSent) ...[
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: isLoading
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        codeSent = false;
+                                        tokenController.clear();
+                                        passwordController.clear();
+                                      });
+                                    },
+                              child: const Text(
+                                "Usar otro correo",
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -190,6 +321,97 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
           ),
         );
       },
+    );
+  }
+
+  InputDecoration inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      filled: true,
+      fillColor: const Color(0xFF11112A).withValues(alpha: 0.92),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: Colors.cyanAccent.withValues(alpha: 0.28),
+        ),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Colors.cyanAccent),
+      ),
+    );
+  }
+
+  Widget glowPanel({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C2E).withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.cyanAccent.withValues(alpha: 0.22),
+            blurRadius: 30,
+            spreadRadius: 1,
+          ),
+          BoxShadow(
+            color: Colors.purpleAccent.withValues(alpha: 0.10),
+            blurRadius: 42,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  static Widget glowButtonWrapper({
+    required Color color,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.55),
+            blurRadius: 30,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: color.withValues(alpha: 0.28),
+            blurRadius: 52,
+            spreadRadius: 6,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  static ButtonStyle glowButtonStyle({
+    required Color backgroundColor,
+    required Color foregroundColor,
+    required Color glowColor,
+  }) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      padding: const EdgeInsets.symmetric(vertical: 17),
+      elevation: 18,
+      shadowColor: glowColor.withValues(alpha: 0.90),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+      ),
     );
   }
 }

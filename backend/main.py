@@ -4,7 +4,12 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from passlib.context import CryptContext
 from fastapi.middleware.cors import CORSMiddleware
+from email.message import EmailMessage
+from datetime import datetime, timedelta, timezone
+import hashlib
 import os
+import secrets
+import smtplib
 
 
 from dotenv import load_dotenv
@@ -61,6 +66,16 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    token: str
+    new_password: str
+
+
 class Income(BaseModel):
     user_email: str
     amount: str
@@ -93,6 +108,56 @@ def hash_password(password: str):
 
 def verify_password(plain, hashed):
     return pwd_context.verify(plain.strip(), hashed)
+
+
+# =========================
+# PASSWORD RESET
+# =========================
+def hash_reset_token(token: str):
+    return hashlib.sha256(token.strip().encode("utf-8")).hexdigest()
+
+
+def ensure_password_reset_table(cur):
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id SERIAL PRIMARY KEY,
+            email TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+
+
+def send_reset_email(email: str, token: str):
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    smtp_from = os.getenv("SMTP_FROM", smtp_user or "")
+
+    if not smtp_host or not smtp_user or not smtp_password or not smtp_from:
+        raise HTTPException(
+            status_code=500,
+            detail="Servidor de correo no configurado"
+        )
+
+    msg = EmailMessage()
+    msg["Subject"] = "Código para recuperar tu contraseña de Astro Fi"
+    msg["From"] = smtp_from
+    msg["To"] = email
+    msg.set_content(
+        "Hola,\n\n"
+        f"Tu código para recuperar tu contraseña es: {token}\n\n"
+        "Este código vence en 15 minutos. Si no solicitaste este cambio, ignora este correo.\n\n"
+        "Astro Fi"
+    )
+
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.send_message(msg)
 
 # =========================
 # REGISTER
@@ -235,6 +300,138 @@ def login(data: LoginRequest):
 
         if conn:
             conn.close()
+
+# =========================
+# FORGOT PASSWORD
+# =========================
+@app.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest):
+    email = data.email.strip()
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        ensure_password_reset_table(cur)
+
+        cur.execute(
+            "SELECT email FROM users WHERE email=%s",
+            (email,)
+        )
+
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Usuario no existe")
+
+        token = f"{secrets.randbelow(1000000):06d}"
+        token_hash = hash_reset_token(token)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+        cur.execute(
+            "UPDATE password_reset_tokens SET used=TRUE WHERE email=%s AND used=FALSE",
+            (email,)
+        )
+
+        cur.execute("""
+            INSERT INTO password_reset_tokens (email, token_hash, expires_at)
+            VALUES (%s, %s, %s)
+        """, (email, token_hash, expires_at))
+
+        send_reset_email(email, token)
+
+        conn.commit()
+
+        response = {"mensaje": "Código enviado"}
+
+        if os.getenv("RESET_TOKEN_DEBUG", "false").lower() == "true":
+            response["token"] = token
+
+        return response
+
+    except HTTPException as e:
+        if conn:
+            conn.rollback()
+        raise e
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# =========================
+# RESET PASSWORD
+# =========================
+@app.post("/reset-password")
+def reset_password(data: ResetPasswordRequest):
+    email = data.email.strip()
+    token_hash = hash_reset_token(data.token)
+    new_password = data.new_password.strip()
+
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        ensure_password_reset_table(cur)
+
+        cur.execute("""
+            SELECT id
+            FROM password_reset_tokens
+            WHERE email=%s
+              AND token_hash=%s
+              AND used=FALSE
+              AND expires_at > NOW()
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (email, token_hash))
+
+        row = cur.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=400, detail="Código inválido o expirado")
+
+        cur.execute(
+            "UPDATE users SET password=%s WHERE email=%s",
+            (hash_password(new_password), email)
+        )
+
+        cur.execute(
+            "UPDATE password_reset_tokens SET used=TRUE WHERE id=%s",
+            (row["id"],)
+        )
+
+        conn.commit()
+
+        return {"mensaje": "Contraseña actualizada"}
+
+    except HTTPException as e:
+        if conn:
+            conn.rollback()
+        raise e
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 # =========================
 # GET USER

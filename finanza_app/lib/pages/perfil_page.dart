@@ -13,7 +13,6 @@ class PerfilPage extends StatefulWidget {
 
 class _PerfilPageState extends State<PerfilPage>
     with SingleTickerProviderStateMixin {
-  // 🔥 URL DEL BACKEND
   final String baseUrl = "https://finanza-app.onrender.com";
 
   String selectedStatus = "trabajando";
@@ -24,8 +23,8 @@ class _PerfilPageState extends State<PerfilPage>
 
   bool loading = false;
 
-  late AnimationController backgroundController;
-  late Animation<double> backgroundAnimation;
+  AnimationController? backgroundController;
+  Animation<double>? backgroundAnimation;
 
   @override
   void initState() {
@@ -37,7 +36,7 @@ class _PerfilPageState extends State<PerfilPage>
     )..repeat(reverse: true);
 
     backgroundAnimation = CurvedAnimation(
-      parent: backgroundController,
+      parent: backgroundController!,
       curve: Curves.easeInOut,
     );
 
@@ -46,15 +45,15 @@ class _PerfilPageState extends State<PerfilPage>
 
   @override
   void dispose() {
-    backgroundController.dispose();
+    backgroundController?.dispose();
     super.dispose();
   }
 
   Widget animatedBackground() {
     return AnimatedBuilder(
-      animation: backgroundAnimation,
+      animation: backgroundController ?? const AlwaysStoppedAnimation(0),
       builder: (context, child) {
-        final value = backgroundAnimation.value;
+        final value = backgroundAnimation?.value ?? 0.0;
 
         return Container(
           decoration: BoxDecoration(
@@ -145,9 +144,6 @@ class _PerfilPageState extends State<PerfilPage>
     );
   }
 
-  // =========================
-  // CARGAR DATOS
-  // =========================
   Future<void> loadFinancialData() async {
     try {
       final incomesResponse = await http.get(
@@ -187,32 +183,14 @@ class _PerfilPageState extends State<PerfilPage>
     }
   }
 
-  // =========================
-  // NIVEL FINANCIERO
-  // =========================
   String getFinancialLevel() {
-    if (totalIncome <= 0) {
-      return "Inicio";
-    }
-
-    if (totalDebt > totalIncome) {
-      return "Precaución";
-    }
-
-    if (totalIncome >= 50000) {
-      return "Avanzado";
-    }
-
-    if (totalIncome >= 15000) {
-      return "Estable";
-    }
-
+    if (totalIncome <= 0) return "Inicio";
+    if (totalDebt > totalIncome) return "Precaución";
+    if (totalIncome >= 50000) return "Avanzado";
+    if (totalIncome >= 15000) return "Estable";
     return "En crecimiento";
   }
 
-  // =========================
-  // TIPS IA
-  // =========================
   String getFinancialTip() {
     if (totalDebt > totalIncome) {
       return "Tu deuda supera tus ingresos. Intenta reducir gastos innecesarios.";
@@ -225,9 +203,6 @@ class _PerfilPageState extends State<PerfilPage>
     return "Mantén un control constante de tus gastos e ingresos.";
   }
 
-  // =========================
-  // GUARDAR PERFIL
-  // =========================
   Future<void> saveProfile() async {
     if (!mounted) return;
 
@@ -268,9 +243,6 @@ class _PerfilPageState extends State<PerfilPage>
     setState(() => loading = false);
   }
 
-  // =========================
-  // FORMATEAR DINERO
-  // =========================
   String money(double value) {
     return value.toStringAsFixed(2);
   }
@@ -644,9 +616,6 @@ class _PerfilPageState extends State<PerfilPage>
     );
   }
 
-  // =========================
-  // MINI CARD
-  // =========================
   static Widget miniCard(
     String title,
     String amount,
@@ -688,9 +657,6 @@ class _PerfilPageState extends State<PerfilPage>
     );
   }
 
-  // =========================
-  // INFO ROW
-  // =========================
   static Widget infoRow(String title, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
