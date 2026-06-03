@@ -497,8 +497,17 @@ class _PerfilPageState extends State<PerfilPage>
                               ),
                             ],
                             onChanged: (value) {
+                              if (value == null) return;
+
                               setState(() {
-                                selectedStatus = value!;
+                                selectedStatus = value;
+
+                                if (value == "desempleado" ||
+                                    value == "sin_ingresos") {
+                                  isWorking = false;
+                                } else if (value == "trabajando") {
+                                  isWorking = true;
+                                }
                               });
                             },
                           ),
