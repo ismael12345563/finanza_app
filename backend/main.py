@@ -137,6 +137,13 @@ def ensure_profile_columns(cur):
     """)
 
 
+def ensure_credit_card_columns(cur):
+    cur.execute("""
+        ALTER TABLE credit_cards
+        ADD COLUMN IF NOT EXISTS payment_frequency TEXT DEFAULT 'Mensual'
+    """)
+
+
 def send_reset_email(email: str, token: str):
     smtp_host = os.getenv("SMTP_HOST")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
@@ -485,6 +492,8 @@ def get_card(email: str):
 
     conn = get_connection()
     cur = conn.cursor()
+    ensure_credit_card_columns(cur)
+    conn.commit()
 
     cur.execute("""
         SELECT *
@@ -508,6 +517,7 @@ def create_card(data: dict):
 
     conn = get_connection()
     cur = conn.cursor()
+    ensure_credit_card_columns(cur)
 
     cur.execute("""
         INSERT INTO credit_cards (
@@ -516,17 +526,24 @@ def create_card(data: dict):
             balance,
             closing_day,
             payment_day,
+            payment_frequency,
             late_months
         )
-        VALUES (%s,%s,%s,%s,%s,%s)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
     """, (
         data["email"],
         data["credit_limit"],
         data["balance"],
         data["closing_day"],
         data["payment_day"],
+        data.get("payment_frequency", "Mensual"),
         data.get("late_months", 0)
     ))
+
+    cur.execute(
+        "UPDATE users SET has_credit_card=TRUE WHERE email=%s",
+        (data["email"],)
+    )
 
     conn.commit()
     cur.close()
@@ -542,6 +559,7 @@ def update_card(data: dict):
 
     conn = get_connection()
     cur = conn.cursor()
+    ensure_credit_card_columns(cur)
 
     cur.execute("""
         UPDATE credit_cards
@@ -550,6 +568,7 @@ def update_card(data: dict):
             balance=%s,
             closing_day=%s,
             payment_day=%s,
+            payment_frequency=%s,
             late_months=%s
         WHERE user_email=%s
     """, (
@@ -557,6 +576,7 @@ def update_card(data: dict):
         data["balance"],
         data["closing_day"],
         data["payment_day"],
+        data.get("payment_frequency", "Mensual"),
         data.get("late_months", 0),
         data["email"]
     ))
@@ -567,6 +587,35 @@ def update_card(data: dict):
     conn.close()
 
     return {"mensaje": "Tarjeta actualizada"}
+
+
+@app.delete("/delete_card/{email}")
+def delete_card(email: str):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "DELETE FROM card_transactions WHERE user_email=%s",
+        (email,)
+    )
+
+    cur.execute(
+        "DELETE FROM credit_cards WHERE user_email=%s",
+        (email,)
+    )
+
+    cur.execute(
+        "UPDATE users SET has_credit_card=FALSE WHERE email=%s",
+        (email,)
+    )
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {"mensaje": "Tarjeta eliminada"}
 
 
 @app.post("/card_transaction")

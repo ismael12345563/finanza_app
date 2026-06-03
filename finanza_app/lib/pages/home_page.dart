@@ -23,6 +23,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   double totalDebt = 0;
 
   bool hasCreditCard = false;
+  Map<String, dynamic>? creditCard;
 
   // =========================
   // IA
@@ -71,6 +72,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     getDebts();
     getExpenses();
     getUserProfile();
+    getCreditCard();
     getPrediction();
   }
 
@@ -251,6 +253,79 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> getCreditCard() async {
+    try {
+      final res = await http.get(
+        Uri.parse("$baseUrl/get_card/${widget.email}"),
+      );
+
+      if (!mounted) return;
+
+      if (res.statusCode == 200 && res.body.isNotEmpty && res.body != "null") {
+        setState(() {
+          creditCard = Map<String, dynamic>.from(jsonDecode(res.body));
+          hasCreditCard = true;
+        });
+      } else {
+        setState(() {
+          creditCard = null;
+          hasCreditCard = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error card: $e");
+    }
+  }
+
+  int? cardInt(String key) {
+    return int.tryParse(creditCard?[key]?.toString() ?? "");
+  }
+
+  double cardDouble(String key) {
+    return safeDouble(creditCard?[key]);
+  }
+
+  DateTime safeDate(int year, int month, int day) {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    return DateTime(year, month, day.clamp(1, lastDay));
+  }
+
+  int daysUntilCardPayment() {
+    final paymentDay = cardInt("payment_day");
+
+    if (paymentDay == null || paymentDay < 1 || paymentDay > 31) {
+      return -1;
+    }
+
+    final now = DateTime.now();
+    var dueDate = safeDate(now.year, now.month, paymentDay);
+
+    if (dueDate.isBefore(DateTime(now.year, now.month, now.day))) {
+      final nextMonth = DateTime(now.year, now.month + 1, 1);
+      dueDate = safeDate(nextMonth.year, nextMonth.month, paymentDay);
+    }
+
+    return dueDate.difference(DateTime(now.year, now.month, now.day)).inDays;
+  }
+
+  String cardPaymentAlert() {
+    final days = daysUntilCardPayment();
+
+    if (days < 0) {
+      return "Configura tu fecha límite de pago para recibir alertas.";
+    }
+
+    if (days == 0) {
+      return "Tu tarjeta vence hoy.";
+    }
+
+    if (days <= 3) {
+      return "Tu tarjeta vence en $days días.";
+    }
+
+    return "Faltan $days días para el pago de tu tarjeta.";
+  }
+
   double safeDouble(dynamic value) {
     final parsed = double.tryParse(value?.toString() ?? "0");
 
@@ -384,6 +459,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     getDebts();
     getExpenses();
     getUserProfile();
+    getCreditCard();
     getPrediction();
   }
 
@@ -420,6 +496,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               getDebts();
               getExpenses();
               getUserProfile();
+              getCreditCard();
               getPrediction();
             },
             icon: const Icon(Icons.refresh, color: Colors.cyanAccent),
@@ -624,55 +701,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      if (hasCreditCard)
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF11112A,
-                            ).withValues(alpha: 0.90),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.purpleAccent.withValues(
-                                alpha: 0.65,
-                              ),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.purpleAccent.withValues(
-                                  alpha: 0.28,
-                                ),
-                                blurRadius: 30,
-                                spreadRadius: 2,
-                              ),
-                              BoxShadow(
-                                color: Colors.cyanAccent.withValues(
-                                  alpha: 0.10,
-                                ),
-                                blurRadius: 42,
-                                spreadRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "💳 Tarjeta de Crédito",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 10),
-                              Text(
-                                "Aquí podrás ver tu gasto acumulado y pago estimado",
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ],
-                          ),
-                        ),
+                      if (hasCreditCard && creditCard != null)
+                        buildCreditCardAlert(),
                       const SizedBox(height: 25),
                       Container(
                         width: double.infinity,
@@ -923,6 +953,108 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildCreditCardAlert() {
+    final limit = cardDouble("credit_limit");
+    final balance = cardDouble("balance");
+    final available = limit - balance;
+    final days = daysUntilCardPayment();
+    final alertColor = days >= 0 && days <= 3
+        ? Colors.orangeAccent
+        : Colors.purpleAccent;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF11112A).withValues(alpha: 0.90),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: alertColor.withValues(alpha: 0.65)),
+        boxShadow: [
+          BoxShadow(
+            color: alertColor.withValues(alpha: 0.24),
+            blurRadius: 30,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: Colors.cyanAccent.withValues(alpha: 0.10),
+            blurRadius: 42,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.credit_card, color: alertColor),
+              const SizedBox(width: 10),
+              const Text(
+                "Tarjeta de Crédito",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            cardPaymentAlert(),
+            style: TextStyle(color: alertColor, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: miniCardText(
+                  "Usado",
+                  "\$${balance.toStringAsFixed(2)}",
+                  Colors.orangeAccent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: miniCardText(
+                  "Disponible",
+                  "\$${available.toStringAsFixed(2)}",
+                  available < 0 ? Colors.redAccent : Colors.greenAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "Pago: día ${creditCard?["payment_day"] ?? "-"} - ${creditCard?["payment_frequency"] ?? "Mensual"}",
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget miniCardText(String title, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.white70)),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
           ),
         ],
       ),

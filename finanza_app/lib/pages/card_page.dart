@@ -24,6 +24,9 @@ class _CardPageState extends State<CardPage>
   final TextEditingController paymentDayController = TextEditingController();
   final TextEditingController lateMonthsController = TextEditingController();
 
+  String selectedPaymentFrequency = "Mensual";
+  final List<String> paymentFrequencies = ["Semanal", "Quincenal", "Mensual"];
+
   final TextEditingController amountController = TextEditingController();
   final TextEditingController descController = TextEditingController();
 
@@ -203,6 +206,7 @@ class _CardPageState extends State<CardPage>
           "balance": double.tryParse(debtController.text) ?? 0,
           "closing_day": closingDayController.text,
           "payment_day": paymentDayController.text,
+          "payment_frequency": selectedPaymentFrequency,
           "late_months": int.tryParse(lateMonthsController.text) ?? 0,
         }),
       );
@@ -212,6 +216,7 @@ class _CardPageState extends State<CardPage>
       closingDayController.clear();
       paymentDayController.clear();
       lateMonthsController.clear();
+      selectedPaymentFrequency = "Mensual";
 
       getCard();
     } catch (e) {
@@ -233,9 +238,12 @@ class _CardPageState extends State<CardPage>
           "balance": double.tryParse(debtController.text) ?? 0,
           "closing_day": closingDayController.text,
           "payment_day": paymentDayController.text,
+          "payment_frequency": selectedPaymentFrequency,
           "late_months": int.tryParse(lateMonthsController.text) ?? 0,
         }),
       );
+
+      if (!mounted) return;
 
       Navigator.pop(context);
 
@@ -263,6 +271,83 @@ class _CardPageState extends State<CardPage>
     descController.clear();
 
     getCard();
+  }
+
+  Future<void> deleteCard() async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/delete_card/${widget.email}"),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        setState(() {
+          card = {};
+        });
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Tarjeta eliminada")));
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: ${response.body}")));
+      }
+    } catch (e) {
+      debugPrint("Error delete card: $e");
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error de conexión: $e")));
+    }
+  }
+
+  int? intFromCard(String key) {
+    return int.tryParse(card[key]?.toString() ?? "");
+  }
+
+  int daysUntilPayment() {
+    final paymentDay = intFromCard("payment_day");
+
+    if (paymentDay == null || paymentDay < 1 || paymentDay > 31) {
+      return -1;
+    }
+
+    final now = DateTime.now();
+    var dueDate = safeDate(now.year, now.month, paymentDay);
+
+    if (dueDate.isBefore(DateTime(now.year, now.month, now.day))) {
+      final nextMonth = DateTime(now.year, now.month + 1, 1);
+      dueDate = safeDate(nextMonth.year, nextMonth.month, paymentDay);
+    }
+
+    return dueDate.difference(DateTime(now.year, now.month, now.day)).inDays;
+  }
+
+  DateTime safeDate(int year, int month, int day) {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    return DateTime(year, month, day.clamp(1, lastDay));
+  }
+
+  String paymentAlertText() {
+    final days = daysUntilPayment();
+
+    if (days < 0) {
+      return "Configura tu fecha límite de pago para recibir alertas.";
+    }
+
+    if (days == 0) {
+      return "Tu pago vence hoy.";
+    }
+
+    if (days <= 3) {
+      return "Tu pago vence en $days días.";
+    }
+
+    return "Faltan $days días para tu próximo pago.";
   }
 
   @override
@@ -344,6 +429,8 @@ class _CardPageState extends State<CardPage>
                   controller: paymentDayController,
                   hint: "Ejemplo: 5",
                 ),
+                frequencyDropdown(),
+                const SizedBox(height: 20),
                 labeledField(
                   label: "Meses de atraso",
                   tooltip: "Cantidad de meses atrasado en pagos.",
@@ -386,48 +473,103 @@ class _CardPageState extends State<CardPage>
               children: [
                 const Text(
                   "Resumen de tarjeta",
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
-                const SizedBox(height: 15),
-                Text(
-                  "Límite: \$${limit.toStringAsFixed(2)}",
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                Text(
-                  "Saldo usado: \$${balance.toStringAsFixed(2)}",
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                Text(
-                  "Disponible: \$${available.toStringAsFixed(2)}",
                   style: TextStyle(
-                    color: Colors.cyanAccent,
-                    shadows: [
-                      Shadow(
-                        color: Colors.cyanAccent.withValues(alpha: 0.55),
-                        blurRadius: 10,
-                      ),
-                    ],
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  "Meses atraso: ${card["late_months"] ?? 0}",
-                  style: const TextStyle(color: Colors.orange),
+                const SizedBox(height: 16),
+                cardInfoRow(
+                  title: "Límite de crédito",
+                  value: "\$${limit.toStringAsFixed(2)}",
+                  description:
+                      "Monto máximo que el banco te presta en la tarjeta.",
+                  color: Colors.cyanAccent,
+                ),
+                cardInfoRow(
+                  title: "Saldo usado",
+                  value: "\$${balance.toStringAsFixed(2)}",
+                  description: "Dinero que ya gastaste y todavía debes pagar.",
+                  color: Colors.orangeAccent,
+                ),
+                cardInfoRow(
+                  title: "Disponible",
+                  value: "\$${available.toStringAsFixed(2)}",
+                  description:
+                      "Crédito que aún puedes usar sin pasar tu límite.",
+                  color: available < 0 ? Colors.redAccent : Colors.greenAccent,
+                ),
+                cardInfoRow(
+                  title: "Fecha de corte",
+                  value: "Día ${card["closing_day"] ?? "-"}",
+                  description: "Día en que cierra tu periodo de compras.",
+                  color: Colors.white,
+                ),
+                cardInfoRow(
+                  title: "Fecha límite de pago",
+                  value: "Día ${card["payment_day"] ?? "-"}",
+                  description: "Último día recomendado para pagar sin atraso.",
+                  color: Colors.cyanAccent,
+                ),
+                cardInfoRow(
+                  title: "Frecuencia de pago",
+                  value: card["payment_frequency"]?.toString() ?? "Mensual",
+                  description:
+                      "Cada cuánto planeas revisar o pagar esta tarjeta.",
+                  color: Colors.purpleAccent,
+                ),
+                cardInfoRow(
+                  title: "Meses de atraso",
+                  value: "${card["late_months"] ?? 0}",
+                  description:
+                      "Meses acumulados en los que no se pagó a tiempo.",
+                  color: Colors.redAccent,
+                  bottomSpacing: 0,
+                ),
+                const SizedBox(height: 18),
+                alertPanel(
+                  icon: Icons.notifications_active,
+                  text: paymentAlertText(),
+                  color: daysUntilPayment() >= 0 && daysUntilPayment() <= 3
+                      ? Colors.orangeAccent
+                      : Colors.cyanAccent,
                 ),
                 const SizedBox(height: 20),
-                glowButtonWrapper(
-                  color: Colors.purpleAccent,
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: showEditDialog,
-                      style: glowButtonStyle(
-                        backgroundColor: Colors.deepPurpleAccent,
-                        foregroundColor: Colors.white,
-                        glowColor: Colors.purpleAccent,
+                Row(
+                  children: [
+                    Expanded(
+                      child: glowButtonWrapper(
+                        color: Colors.purpleAccent,
+                        child: ElevatedButton.icon(
+                          onPressed: showEditDialog,
+                          icon: const Icon(Icons.edit),
+                          label: const Text("Editar"),
+                          style: glowButtonStyle(
+                            backgroundColor: Colors.deepPurpleAccent,
+                            foregroundColor: Colors.white,
+                            glowColor: Colors.purpleAccent,
+                          ),
+                        ),
                       ),
-                      child: const Text("Editar tarjeta"),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: glowButtonWrapper(
+                        color: Colors.redAccent,
+                        child: ElevatedButton.icon(
+                          onPressed: showDeleteDialog,
+                          icon: const Icon(Icons.delete),
+                          label: const Text("Eliminar"),
+                          style: glowButtonStyle(
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            glowColor: Colors.redAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -473,8 +615,99 @@ class _CardPageState extends State<CardPage>
     debtController.text = card["balance"].toString();
     closingDayController.text = card["closing_day"].toString();
     paymentDayController.text = card["payment_day"].toString();
+    selectedPaymentFrequency =
+        card["payment_frequency"]?.toString() ?? "Mensual";
     lateMonthsController.text = card["late_months"].toString();
 
+    showDialog(
+      context: context,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1C1C2E),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: Colors.cyanAccent.withValues(alpha: 0.35),
+                ),
+              ),
+              title: const Text(
+                "Editar tarjeta",
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: limitController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: inputDecoration("Límite"),
+                    ),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: debtController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: inputDecoration("Saldo usado"),
+                    ),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: closingDayController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: inputDecoration("Fecha corte"),
+                    ),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: paymentDayController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: inputDecoration("Fecha pago"),
+                    ),
+                    const SizedBox(height: 15),
+                    frequencyDropdown(dialogSetState: setDialogState),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: lateMonthsController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: inputDecoration("Meses atraso"),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    "Cancelar",
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: editCard,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyanAccent,
+                    foregroundColor: Colors.black,
+                    elevation: 12,
+                    shadowColor: Colors.cyanAccent.withValues(alpha: 0.6),
+                  ),
+                  child: const Text("Guardar"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void showDeleteDialog() {
     showDialog(
       context: context,
       builder: (_) {
@@ -482,76 +715,138 @@ class _CardPageState extends State<CardPage>
           backgroundColor: const Color(0xFF1C1C2E),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: Colors.cyanAccent.withValues(alpha: 0.35)),
+            side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.35)),
           ),
           title: const Text(
-            "Editar tarjeta",
+            "Eliminar tarjeta",
             style: TextStyle(color: Colors.white),
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: limitController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: inputDecoration("Límite"),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: debtController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: inputDecoration("Saldo usado"),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: closingDayController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: inputDecoration("Fecha corte"),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: paymentDayController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: inputDecoration("Fecha pago"),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: lateMonthsController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: inputDecoration("Meses atraso"),
-                ),
-              ],
-            ),
+          content: const Text(
+            "Se eliminará la tarjeta y sus movimientos registrados. Puedes crear otra después.",
+            style: TextStyle(color: Colors.white70),
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context),
               child: const Text(
                 "Cancelar",
                 style: TextStyle(color: Colors.white70),
               ),
             ),
             ElevatedButton(
-              onPressed: editCard,
+              onPressed: () {
+                Navigator.pop(context);
+                deleteCard();
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.cyanAccent,
-                foregroundColor: Colors.black,
-                elevation: 12,
-                shadowColor: Colors.cyanAccent.withValues(alpha: 0.6),
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
               ),
-              child: const Text("Guardar"),
+              child: const Text("Eliminar"),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget cardInfoRow({
+    required String title,
+    required String value,
+    required String description,
+    required Color color,
+    double bottomSpacing = 14,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomSpacing),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(color: color, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: const TextStyle(color: Colors.white60, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget alertPanel({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget frequencyDropdown({StateSetter? dialogSetState}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C2E).withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.28)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedPaymentFrequency,
+          dropdownColor: const Color(0xFF1C1C2E),
+          isExpanded: true,
+          style: const TextStyle(color: Colors.white),
+          items: paymentFrequencies.map((frequency) {
+            return DropdownMenuItem(value: frequency, child: Text(frequency));
+          }).toList(),
+          onChanged: (value) {
+            if (value == null) return;
+
+            void updateFrequency() {
+              selectedPaymentFrequency = value;
+            }
+
+            if (dialogSetState != null) {
+              dialogSetState(updateFrequency);
+            } else {
+              setState(updateFrequency);
+            }
+          },
+        ),
+      ),
     );
   }
 
