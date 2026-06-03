@@ -16,6 +16,7 @@ class _CardPageState extends State<CardPage>
   final String baseUrl = "https://finanza-app.onrender.com";
 
   Map card = {};
+  List transactions = [];
   bool loading = true;
 
   final TextEditingController limitController = TextEditingController();
@@ -174,6 +175,8 @@ class _CardPageState extends State<CardPage>
           card = jsonDecode(res.body);
           loading = false;
         });
+
+        getTransactions();
       } else {
         if (!mounted) return;
 
@@ -189,6 +192,33 @@ class _CardPageState extends State<CardPage>
       setState(() {
         loading = false;
       });
+    }
+  }
+
+  Future<void> getTransactions() async {
+    try {
+      final res = await http.get(
+        Uri.parse("$baseUrl/get_card_transactions/${widget.email}"),
+      );
+
+      if (res.statusCode == 200) {
+        if (!mounted) return;
+
+        setState(() {
+          transactions = jsonDecode(res.body);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error card transactions: $e");
+    }
+  }
+
+  String formatDate(String date) {
+    try {
+      final parsed = DateTime.parse(date);
+      return "${parsed.day}/${parsed.month}/${parsed.year}";
+    } catch (e) {
+      return "";
     }
   }
 
@@ -271,6 +301,7 @@ class _CardPageState extends State<CardPage>
     descController.clear();
 
     getCard();
+    getTransactions();
   }
 
   Future<void> deleteCard() async {
@@ -284,6 +315,7 @@ class _CardPageState extends State<CardPage>
       if (response.statusCode == 200) {
         setState(() {
           card = {};
+          transactions = [];
         });
 
         ScaffoldMessenger.of(
@@ -483,47 +515,43 @@ class _CardPageState extends State<CardPage>
                 cardInfoRow(
                   title: "Límite de crédito",
                   value: "\$${limit.toStringAsFixed(2)}",
-                  description:
-                      "Monto máximo que el banco te presta en la tarjeta.",
+                  tooltip: "Monto máximo que el banco te presta en la tarjeta.",
                   color: Colors.cyanAccent,
                 ),
                 cardInfoRow(
                   title: "Saldo usado",
                   value: "\$${balance.toStringAsFixed(2)}",
-                  description: "Dinero que ya gastaste y todavía debes pagar.",
+                  tooltip: "Dinero que ya gastaste y todavía debes pagar.",
                   color: Colors.orangeAccent,
                 ),
                 cardInfoRow(
                   title: "Disponible",
                   value: "\$${available.toStringAsFixed(2)}",
-                  description:
-                      "Crédito que aún puedes usar sin pasar tu límite.",
+                  tooltip: "Crédito que aún puedes usar sin pasar tu límite.",
                   color: available < 0 ? Colors.redAccent : Colors.greenAccent,
                 ),
                 cardInfoRow(
                   title: "Fecha de corte",
                   value: "Día ${card["closing_day"] ?? "-"}",
-                  description: "Día en que cierra tu periodo de compras.",
+                  tooltip: "Día en que cierra tu periodo de compras.",
                   color: Colors.white,
                 ),
                 cardInfoRow(
                   title: "Fecha límite de pago",
                   value: "Día ${card["payment_day"] ?? "-"}",
-                  description: "Último día recomendado para pagar sin atraso.",
+                  tooltip: "Último día recomendado para pagar sin atraso.",
                   color: Colors.cyanAccent,
                 ),
                 cardInfoRow(
                   title: "Frecuencia de pago",
                   value: card["payment_frequency"]?.toString() ?? "Mensual",
-                  description:
-                      "Cada cuánto planeas revisar o pagar esta tarjeta.",
+                  tooltip: "Cada cuánto planeas revisar o pagar esta tarjeta.",
                   color: Colors.purpleAccent,
                 ),
                 cardInfoRow(
                   title: "Meses de atraso",
                   value: "${card["late_months"] ?? 0}",
-                  description:
-                      "Meses acumulados en los que no se pagó a tiempo.",
+                  tooltip: "Meses acumulados en los que no se pagó a tiempo.",
                   color: Colors.redAccent,
                   bottomSpacing: 0,
                 ),
@@ -605,6 +633,8 @@ class _CardPageState extends State<CardPage>
               ),
             ),
           ),
+          const SizedBox(height: 28),
+          buildTransactionHistory(),
         ],
       ),
     );
@@ -753,38 +783,128 @@ class _CardPageState extends State<CardPage>
   Widget cardInfoRow({
     required String title,
     required String value,
-    required String description,
+    required String tooltip,
     required Color color,
-    double bottomSpacing = 14,
+    double bottomSpacing = 12,
   }) {
     return Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: tooltip,
+                  child: const Icon(
+                    Icons.help_outline,
+                    color: Colors.white54,
+                    size: 17,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildTransactionHistory() {
+    return glowPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+          const Text(
+            "Historial de gastos",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (transactions.isEmpty)
+            const Text(
+              "No hay gastos registrados con esta tarjeta",
+              style: TextStyle(color: Colors.white70),
+            )
+          else
+            ...transactions.map((transaction) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.cyanAccent.withValues(alpha: 0.22),
                   ),
                 ),
-              ),
-              Text(
-                value,
-                style: TextStyle(color: color, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            description,
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
-          ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.cyanAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.receipt_long,
+                        color: Colors.cyanAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            transaction["description"]?.toString() ?? "Compra",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            formatDate(
+                              transaction["created_at"]?.toString() ?? "",
+                            ),
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      "\$${transaction["amount"]}",
+                      style: const TextStyle(
+                        color: Colors.orangeAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
         ],
       ),
     );
