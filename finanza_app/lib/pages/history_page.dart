@@ -156,6 +156,10 @@ class _HistoryPageState extends State<HistoryPage>
         Uri.parse("$baseUrl/get_expenses/${widget.email}"),
       );
 
+      final cardResponse = await http.get(
+        Uri.parse("$baseUrl/get_card_transactions/${widget.email}"),
+      );
+
       List temp = [];
 
       if (incomesResponse.statusCode == 200) {
@@ -179,6 +183,14 @@ class _HistoryPageState extends State<HistoryPage>
 
         for (var item in expenses) {
           temp.add({...item, "type": "Gasto"});
+        }
+      }
+
+      if (cardResponse.statusCode == 200) {
+        final cardTransactions = jsonDecode(cardResponse.body);
+
+        for (var item in cardTransactions) {
+          temp.add({...item, "type": "Tarjeta"});
         }
       }
 
@@ -236,6 +248,9 @@ class _HistoryPageState extends State<HistoryPage>
       case "Gasto":
         return Colors.orangeAccent;
 
+      case "Tarjeta":
+        return Colors.cyanAccent;
+
       default:
         return Colors.white;
     }
@@ -251,6 +266,9 @@ class _HistoryPageState extends State<HistoryPage>
 
       case "Gasto":
         return Icons.shopping_cart;
+
+      case "Tarjeta":
+        return Icons.credit_card;
 
       default:
         return Icons.info;
@@ -325,6 +343,10 @@ class _HistoryPageState extends State<HistoryPage>
                               DropdownMenuItem(
                                 value: "Gasto",
                                 child: Text("Gastos"),
+                              ),
+                              DropdownMenuItem(
+                                value: "Tarjeta",
+                                child: Text("Tarjeta"),
                               ),
                             ],
                             onChanged: (value) {
