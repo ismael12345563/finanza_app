@@ -19,6 +19,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   bool isLoading = false;
   bool codeSent = false;
   bool obscurePassword = true;
+  String? debugToken;
 
   late AnimationController animationController;
   late Animation<double> backgroundAnimation;
@@ -61,10 +62,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
       setState(() => isLoading = false);
 
       if (response.statusCode == 200) {
-        setState(() => codeSent = true);
+        final body = jsonDecode(response.body);
+        final debugToken = body["token"]?.toString();
+
+        setState(() {
+          codeSent = true;
+          this.debugToken = debugToken;
+          if (debugToken != null && debugToken.isNotEmpty) {
+            tokenController.text = debugToken;
+          }
+        });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Código enviado a tu correo")),
+          SnackBar(
+            content: Text(
+              debugToken == null || debugToken.isEmpty
+                  ? "Código enviado a tu correo"
+                  : "Código de prueba: $debugToken",
+            ),
+          ),
         );
       } else {
         ScaffoldMessenger.of(
@@ -229,6 +245,43 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                             style: const TextStyle(color: Colors.white),
                             decoration: inputDecoration("Correo"),
                           ),
+                          if (debugToken != null && debugToken!.isNotEmpty) ...[
+                            const SizedBox(height: 15),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.cyanAccent.withValues(
+                                  alpha: 0.10,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Colors.cyanAccent.withValues(
+                                    alpha: 0.35,
+                                  ),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Código de prueba",
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    debugToken!,
+                                    style: const TextStyle(
+                                      color: Colors.cyanAccent,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (codeSent) ...[
                             const SizedBox(height: 15),
                             TextField(
@@ -303,6 +356,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                         codeSent = false;
                                         tokenController.clear();
                                         passwordController.clear();
+                                        debugToken = null;
                                       });
                                     },
                               child: const Text(

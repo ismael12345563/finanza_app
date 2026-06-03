@@ -338,13 +338,18 @@ def forgot_password(data: ForgotPasswordRequest):
             VALUES (%s, %s, %s)
         """, (email, token_hash, expires_at))
 
-        send_reset_email(email, token)
+        debug_mode = os.getenv("RESET_TOKEN_DEBUG", "false").lower() == "true"
+
+        if not debug_mode:
+            send_reset_email(email, token)
 
         conn.commit()
 
-        response = {"mensaje": "Código enviado"}
+        response = {
+            "mensaje": "Código generado" if debug_mode else "Código enviado"
+        }
 
-        if os.getenv("RESET_TOKEN_DEBUG", "false").lower() == "true":
+        if debug_mode:
             response["token"] = token
 
         return response
